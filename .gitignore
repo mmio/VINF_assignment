@@ -1,0 +1,7 @@
+src/profiling/
+src/data/
+src/output/
+src/.vscode
+__pycache__/
+.ipynb_checkpoints
+*.out
