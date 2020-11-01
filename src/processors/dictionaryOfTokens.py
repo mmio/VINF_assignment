@@ -11,7 +11,7 @@ class DictionaryOfTokens(Processor):
         for token in doc:
             ## keep keywords only, needs ner or tagger?
             ## save queries, not only users
-            if token.text == '\n' or token.is_stop:
+            if token.text == '\n' or token.is_stop or token.is_oov:
                 continue
 
             try:

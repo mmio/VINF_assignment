@@ -31,6 +31,7 @@ def main():
 
     openFilesList = dict()
 
+
     # 1. only divide into folders
     # for row in get_text_from_gzip(archives):
     #     userId = row[0]
@@ -72,7 +73,6 @@ def main():
     files = []
     outputs = []
     for folderName in tqdm(os.listdir(path)):
-        break
         with open(f'{path}{folderName}/queries.txt', 'r') as file:
 
             # output = []
@@ -102,8 +102,8 @@ def main():
 
     # for p in processors:
     #     p.save()
-    # d.save()
-    d.load()
+    d.save()
+    # d.load()
 
     tokenizer = get_tokenizer(nlp)
     # 3. compare them to others / models
@@ -114,12 +114,12 @@ def main():
             # for row in json.load(file1):
                 for token in row:
                     if sim_dict.get(token.text, False):
-                        print(f'Skipping {token.text}')
+                        # print(f'Skipping {token.text}')
                         continue
                     sim_dict.update({token.text: True})
 
-                    print(token.text)
-                    print(len(list(d.get_item(token.text))))
+                    # print(token.text)
+                    # print(len(list(d.get_item(token.text))))
                     for lowerFolder in tqdm(d.get_item(token.text)):
                         if lowerFolder == upperFolder:
                             continue
