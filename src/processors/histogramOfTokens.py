@@ -7,7 +7,7 @@ class HistogramOfTokens(Processor):
         self.counter = Counter()
         self.destination = destination
     
-    def add_doc(self, doc):
+    def add_doc(self, doc, userId):
         self.counter.update([token.text for token in doc])
 
     def save(self):

@@ -12,3 +12,6 @@ def get_pipe():
     # nlp.add_pipe(my_component, name="print_info", last=True)
     # print(nlp.pipe_names)  # ['tagger', 'parser', 'ner', 'print_info']
     return nlp
+
+def get_tokenizer(nlp):
+    return nlp.Defaults.create_tokenizer(nlp)

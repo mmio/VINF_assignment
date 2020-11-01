@@ -7,7 +7,7 @@ class HistogramOfQueries(Processor):
         self.counter = Counter()
         self.destination = destination
     
-    def add_doc(self, doc):
+    def add_doc(self, doc, userId):
         self.counter.update([doc.text])
 
     def save(self):
