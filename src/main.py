@@ -2,7 +2,7 @@
 
 import os
 import contextlib
-from multiprocessing import Pool
+from multiprocessing import Pool, Process
 
 from tqdm import tqdm
 import json
@@ -20,16 +20,53 @@ from processors.histogramOfTokens import HistogramOfTokens
 from processors.histogramOfQueries import HistogramOfQueries
 from processors.dictionaryOfTokens import DictionaryOfTokens
 
+
+def chunks(l, n):
+    """Yield n number of striped chunks from l."""
+    for i in range(0, n):
+        yield l[i::n]
+
+def stuff0(folderNames, path, d, nlp):
+    for folderName in folderNames:
+        with open(f'{path}{folderName}/queries.txt', 'r') as file:
+            for doc in nlp.pipe(file):
+                d.add_doc(doc, folderName)
+
+def stuff(upperFolders, path, d, tokenizer):
+    for upperFolder in upperFolders:
+        with open(f'{path}{upperFolder}/queries.txt') as file1:
+            sim_dict = {}
+            for row in tokenizer.pipe(file1):
+            # for row in json.load(file1):
+                for token in row:
+                    if sim_dict.get(token.text, False):
+                        # print(f'Skipping {token.text}')
+                        continue
+                    sim_dict.update({token.text: True})
+
+                    # print(token.text)
+                    # print(len(list(d.get_item(token.text))))
+                    for lowerFolder in d.get_item(token.text):
+                        if lowerFolder == upperFolder:
+                            continue
+                        with open(f'{path}{lowerFolder}/queries.txt') as file2:
+                            for doc in tokenizer.pipe(file2):
+                                if token.text in doc.text:
+                                    doc.similarity(row)
+        print("folder finished")
+
 def main():
     # open multiple files
+
     archives = [
-        download_and_save(url, destination)
+        download_and_save(url)
         for url in urls
     ]
-
+    
     userIgnoreList = ['AnonID']
 
     openFilesList = dict()
+
 
 
     # 1. only divide into folders
@@ -73,6 +110,7 @@ def main():
     files = []
     outputs = []
     for folderName in tqdm(os.listdir(path)):
+        break
         with open(f'{path}{folderName}/queries.txt', 'r') as file:
 
             # output = []
@@ -102,31 +140,53 @@ def main():
 
     # for p in processors:
     #     p.save()
-    d.save()
-    # d.load()
+    # d.save()
+
+    jobs = []
+    for folderNames in chunks(os.listdir(path), 4):
+        p = Process(target=stuff0, args=(folderNames, path, d, nlp,))
+        jobs.append(p)
+        p.start()
+
+    d.load()
 
     tokenizer = get_tokenizer(nlp)
-    # 3. compare them to others / models
-    for upperFolder in tqdm(os.listdir(path)):
-        with open(f'{path}{upperFolder}/queries.txt') as file1:
-            sim_dict = {}
-            for row in tokenizer.pipe(file1):
-            # for row in json.load(file1):
-                for token in row:
-                    if sim_dict.get(token.text, False):
-                        # print(f'Skipping {token.text}')
-                        continue
-                    sim_dict.update({token.text: True})
 
-                    # print(token.text)
-                    # print(len(list(d.get_item(token.text))))
-                    for lowerFolder in tqdm(d.get_item(token.text)):
-                        if lowerFolder == upperFolder:
-                            continue
-                        with open(f'{path}{lowerFolder}/queries.txt') as file2:
-                            for doc in tokenizer.pipe(file2):
-                                if token.text in doc.text:
-                                    doc.similarity(row)
+    exit(1)
+
+    jobs = []
+    for upperFolders in chunks(os.listdir(path), 4):
+        p = Process(target=stuff, args=(upperFolders, path, d, tokenizer,))
+        jobs.append(p)
+        p.start()
+
+    # 3. compare them to others / models
+    # for upperFolder in tqdm(os.listdir(path)):
+    #     with open(f'{path}{upperFolder}/queries.txt') as file1:
+    #         sim_dict = {}
+    #         for row in tokenizer.pipe(file1):
+    #         # for row in json.load(file1):
+    #             for token in row:
+    #                 if sim_dict.get(token.text, False):
+    #                     # print(f'Skipping {token.text}')
+    #                     continue
+    #                 sim_dict.update({token.text: True})
+
+    #                 # print(token.text)
+    #                 # print(len(list(d.get_item(token.text))))
+    #                 for lowerFolder in tqdm(d.get_item(token.text)):
+    #                     if lowerFolder == upperFolder:
+    #                         continue
+    #                     with open(f'{path}{lowerFolder}/queries.txt') as file2:
+    #                         for doc in tokenizer.pipe(file2):
+    #                             if token.text in doc.text:
+    #                                 doc.similarity(row)
+
+
+
+
+
+
                                 # this can be optimized
                                 # pull out tokenizer, manually compare
                                 # tokenizer(' '.join(row)).similarity(tokenizer(' '.join(row2)))
