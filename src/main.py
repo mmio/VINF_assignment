@@ -1,8 +1,18 @@
 # https://github.com/explosion/spaCy/blob/01aec7a313753775603a9e6f752f75cc16ac43fb/examples/pipeline/multi_processing.py#L48
 
 import os
+import numpy as np
+
+from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
+from sklearn.cluster import DBSCAN, KMeans
+
+import pickle
 import contextlib
 from multiprocessing import Pool, Process
+from functools import reduce
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from tqdm import tqdm
 import json
@@ -33,7 +43,7 @@ def stuff0(folderNames, path, d, nlp):
                 d.add_doc(doc, folderName)
 
 def stuff(upperFolders, path, d, tokenizer):
-    for upperFolder in upperFolders:
+    for upperFolder in tqdm(upperFolders):
         with open(f'{path}{upperFolder}/queries.txt') as file1:
             sim_dict = {}
             for row in tokenizer.pipe(file1):
@@ -93,7 +103,19 @@ def main():
     #         for f in openFilesList.values():
     #             f.close()
     #         openFilesList = dict()
-            
+    
+
+
+
+    # get_all_query_docs_for_folder()
+    # compute_average_vector_for_the_first_parts()
+    # compute_average_for_end()
+
+    # for_every_end -> go_through_the_folders_and find most similar based on similarity
+
+
+
+
     # 2. use the pipeline to tokenize and create processors to create stats
     processors = [
         # HistogramOfTokens(),
@@ -142,23 +164,70 @@ def main():
     #     p.save()
     # d.save()
 
-    jobs = []
-    for folderNames in chunks(os.listdir(path), 4):
-        p = Process(target=stuff0, args=(folderNames, path, d, nlp,))
-        jobs.append(p)
-        p.start()
+    # jobs = []
+    # for folderNames in chunks(os.listdir(path), 4):
+    #     p = Process(target=stuff0, args=(folderNames, path, d, nlp,))
+    #     jobs.append(p)
+    #     p.start()
 
-    d.load()
+    # d.load()
 
     tokenizer = get_tokenizer(nlp)
 
-    exit(1)
+    # exit(1)
 
-    jobs = []
-    for upperFolders in chunks(os.listdir(path), 4):
-        p = Process(target=stuff, args=(upperFolders, path, d, tokenizer,))
-        jobs.append(p)
-        p.start()
+    # jobs = []
+    # for upperFolders in chunks(os.listdir(path), 4):
+    #     p = Process(target=stuff, args=(upperFolders, path, d, tokenizer,))
+    #     jobs.append(p)
+    #     p.start()
+    #3333. divide into train and test
+    for folder in tqdm(os.listdir(path)):
+        with open(f'{path}{folder}/queries.txt') as file:
+            docs = []
+            for doc in nlp.pipe(file, disable=['ner', 'tagger']):
+                docs.append(doc.vector)
+            # average and divide into 2 train.vector.pickle, test.vector.pickle
+            percentil80 = int(len(docs) * 0.8)
+            train = reduce(lambda a,b: a + b, docs[:percentil80], np.zeros(300)) / percentil80
+            test = reduce(lambda a,b: a + b, docs[percentil80:], np.zeros(300)) / (len(docs) - percentil80)
+
+            with open(f'{path}{folder}/vectors.pickle', 'wb') as vectors:
+                pickle.dump(train, vectors, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(f'{path}{folder}/vectors.test.pickle', 'wb') as vectors_test:
+                pickle.dump(test, vectors_test, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # 4444. tsne
+    data_subset = []
+    for folder in tqdm(os.listdir(path)):
+        with open(f'{path}{folder}/vectors.pickle', 'rb') as vectors:
+            try:
+                x = pickle.load(vectors)
+                array_sum = np.sum(x)
+                if not np.isnan(array_sum):
+                    data_subset.append(x)
+            except:
+                continue
+    data_subset = data_subset[:1_000]
+    print("start clustering")
+    # clustering = DBSCAN(eps=0.5, min_samples=5, n_jobs=4).fit(data_subset)
+    clustering = KMeans(n_clusters=20, random_state=0).fit(data_subset)
+    print("finish clustering")
+
+    print("pca start")
+    pca_50 = PCA(n_components=50)
+    pca_result_50 = pca_50.fit_transform(data_subset)
+    print("pca finished")
+
+    print("tsne start")
+    tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000, n_jobs=4)
+    tsne_results = tsne.fit_transform(pca_result_50)
+    print("tsne finished")
+    plt.figure(figsize=(16,10))
+    sns.scatterplot(
+        x=tsne_results[:,0], y=tsne_results[:,1], hue=clustering.labels_
+    )
+    plt.show()
 
     # 3. compare them to others / models
     # for upperFolder in tqdm(os.listdir(path)):

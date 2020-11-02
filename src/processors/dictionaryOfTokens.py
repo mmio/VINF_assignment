@@ -1,17 +1,19 @@
 import pickle
+from multiprocessing import Manager
 from processors.processor import Processor
 from collections import defaultdict
 
 class DictionaryOfTokens(Processor):
     def __init__(self, destination):
-        self.dictionary = defaultdict(set)
+        self.dictionary = Manager().dict()
         self.destination = destination
     
     def add_doc(self, doc, userId):
         for token in doc:
             ## keep keywords only, needs ner or tagger?
             ## save queries, not only users
-            if token.text == '\n' or token.is_stop or token.is_oov:
+            pos_tag = ['PROPN', 'ADJ', 'NOUN']
+            if token.text == '\n' or token.is_stop or token.is_oov or (not token.pos_ in pos_tag):
                 continue
 
             try:
