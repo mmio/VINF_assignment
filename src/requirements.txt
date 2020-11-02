@@ -1,4 +1,5 @@
-# matplotlib
 spacy
+matplotlib
+sklearn
+seaborn
 # spacy-langdetect
-# pandas
