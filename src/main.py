@@ -177,31 +177,78 @@ def compare_users_cosim(path):
         jobs.append(p)
         p.start()
 
+def get_query(tsv_stream):
+    for row in tsv_stream:
+        yield row[1]
+
+def queries_to_vector(nlp, tsv_stream):
+    query_stream = map(lambda s: s[1], tsv_stream)
+
+    data_subset = []
+    for doc in nlp.pipe(query_stream):
+        # print(doc.text)
+        data_subset.append(doc.vector)
+        if len(data_subset) == 100_000:
+            break
+
+    return data_subset
+
+def reduce_dimensions(data_subset, n_components):
+    pca_of_n = PCA(n_components=50)
+    return pca_of_n.fit_transform(data_subset)
+
+def cluster_data(data):
+    return DBSCAN(eps=0.1, min_samples=5, n_jobs=4).fit(data)
+    # clustering = KMeans(n_clusters=100).fit(data_subset)
+
+def save_scatterplot(savefile, x, y, hue):
+    plt.figure(figsize=(16,10))
+    sns.scatterplot(
+        x=x, y=y, hue=hue
+    )
+    plt.savefig(savefile)
+
+def vector_to_scatterplot(data_subset, savefile):
+
+    reduced_data = reduce_dimensions(data_subset, 50)
+
+    clustered_data = cluster_data(reduced_data)
+
+    print("tsne start")
+    tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000, n_jobs=4)
+    tsne_results = tsne.fit_transform(reduced_data)
+    print("tsne finished")
+
+    save_scatterplot(savefile, tsne_results[:,0], tsne_results[:,1], clustered_data.labels_)
+
 def main():
     archives = [
         download_and_save(url)
         for url in urls
     ]
     
-    userIgnoreList = ['AnonID']
+    # userIgnoreList = ['AnonID']
 
-    textStatsCollectors = [
-        HistogramOfQueries('data/users/global/stats/'),
-        AverageQueryLength('data/users/global/stats/'),
-        AverageNumberOfQueriesPerUser('data/users/global/stats/')
-    ]
+    # textStatsCollectors = [
+    #     HistogramOfQueries('data/users/global/stats/'),
+    #     AverageQueryLength('data/users/global/stats/'),
+    #     AverageNumberOfQueriesPerUser('data/users/global/stats/')
+    # ]
 
-    docStatsCollectors = [
-        HistogramOfTokens('data/users/global/stats/histogramOfTokens.json'),
-        # DictionaryOfTokens('data/users/global/stats/dict.pickle'),
-    ]
+    # docStatsCollectors = [
+    #     HistogramOfTokens('data/users/global/stats/histogramOfTokens.json'),
+    #     # DictionaryOfTokens('data/users/global/stats/dict.pickle'),
+    # ]
 
-    path = 'data/users/individual/'
+    # path = 'data/users/individual/'
+
+    data = queries_to_vector(get_pipe(), get_text_from_gzip(archives))
+    vector_to_scatterplot(data, 'query_cluster.pdf')
 
     # queries_to_folders(get_text_from_gzip(archives), textStatsCollectors, userIgnoreList)
     # tokenize_queries(get_pipe(), path, docStatsCollectors)
     # cluster_user_history(path)
-    compare_users_cosim(path)
+    # compare_users_cosim(path)
 
 if __name__ == '__main__':
     main()
