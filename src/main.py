@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from tqdm import tqdm
+import datetime
 
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
@@ -188,8 +189,6 @@ def queries_to_vector(nlp, tsv_stream):
     for doc in nlp.pipe(query_stream):
         # print(doc.text)
         data_subset.append(doc.vector)
-        if len(data_subset) == 100_000:
-            break
 
     return data_subset
 
@@ -198,8 +197,8 @@ def reduce_dimensions(data_subset, n_components):
     return pca_of_n.fit_transform(data_subset)
 
 def cluster_data(data):
-    return DBSCAN(eps=0.1, min_samples=5, n_jobs=4).fit(data)
-    # clustering = KMeans(n_clusters=100).fit(data_subset)
+    return DBSCAN(eps=1, min_samples=5, n_jobs=4).fit(data)
+    # return KMeans(n_clusters=100).fit(data)
 
 def save_scatterplot(savefile, x, y, hue):
     plt.figure(figsize=(16,10))
@@ -220,6 +219,32 @@ def vector_to_scatterplot(data_subset, savefile):
     print("tsne finished")
 
     save_scatterplot(savefile, tsne_results[:,0], tsne_results[:,1], clustered_data.labels_)
+
+def skip_first_row(stream):
+    next(stream)
+    return stream
+
+def time_to_datetime(str_time):
+    return datetime.datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
+
+def divide_queries_based_on_time(tsv_stream):
+    
+    days = {}
+    for row in tqdm(tsv_stream):
+
+        if row[2] == 'QueryTime':
+            continue
+
+        time = time_to_datetime(row[2])
+
+        if not days.get(f'{time.month} {time.day}', False):
+            days.update({f'{time.month} {time.day}': open(f'{time.month} {time.day}', 'a')})
+
+        fp = days.get(f'{time.month} {time.day}')
+        fp.write(f'{row[1]}\n')
+    
+    for value in days.values():
+        value.close()
 
 def main():
     archives = [
@@ -242,7 +267,8 @@ def main():
 
     # path = 'data/users/individual/'
 
-    data = queries_to_vector(get_pipe(), get_text_from_gzip(archives))
+    # folders = divide_queries_based_on_time(get_text_from_gzip(archives))
+    data = queries_to_vector(get_pipe(), open('5 25', 'r'))
     vector_to_scatterplot(data, 'query_cluster.pdf')
 
     # queries_to_folders(get_text_from_gzip(archives), textStatsCollectors, userIgnoreList)
