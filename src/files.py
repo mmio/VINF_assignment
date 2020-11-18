@@ -11,7 +11,7 @@ files = [
     # 'user-ct-test-collection-07.txt.gz',
     # 'user-ct-test-collection-08.txt.gz',
     # 'user-ct-test-collection-09.txt.gz',
-    'user-ct-test-collection-10.txt.gz'
+    # 'user-ct-test-collection-10.txt.gz'
 ]
 
 urls = [
