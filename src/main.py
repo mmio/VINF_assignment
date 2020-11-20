@@ -5,7 +5,7 @@ import datetime
 
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
-from sklearn.cluster import DBSCAN, KMeans
+from sklearn.cluster import DBSCAN, KMeans, OPTICS
 from sklearn.metrics.pairwise import cosine_similarity
 
 import pickle
@@ -110,90 +110,58 @@ def tokenize_queries(nlp, path, docStatsCollectors):
     for dsc in docStatsCollectors:
         dsc.save()
 
-def cluster_user_history(path):
-    data_subset = []
-    for folder in tqdm(os.listdir(path)):
-        with open(f'{path}{folder}/vectors.pickle', 'rb') as vectors:
-            try:
-                x = pickle.load(vectors)
-                array_sum = np.sum(x)
-                if not np.isnan(array_sum):
-                    data_subset.append(x)
-            except:
-                continue
-
-    print("pca start")
-    pca_50 = PCA(n_components=50)
-    pca_result_50 = pca_50.fit_transform(data_subset)
-    print("pca finished")
-
-    print("start clustering")
-    clustering = DBSCAN(eps=0.1, min_samples=5, n_jobs=4).fit(pca_result_50)
-    # clustering = KMeans(n_clusters=100).fit(data_subset)
-    print("finish clustering")
-
-
-    print("tsne start")
-    tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000, n_jobs=4)
-    tsne_results = tsne.fit_transform(pca_result_50)
-    print("tsne finished")
-    plt.figure(figsize=(16,10))
-    sns.scatterplot(
-        x=tsne_results[:,0], y=tsne_results[:,1], hue=clustering.labels_
-    )
-    plt.savefig('clustering.pdf')
-
-def compare_users_cosim(path):
-    others = []
-    for folder in tqdm(os.listdir(path)):
-        other = open(f'{path}{folder}/vectors.pickle', 'rb')
-        y = pickle.load(other)
-        if np.isnan(y[0]):
-            continue
-        others.append((y, folder))
-    
-    xs = []
-    for folder in tqdm(os.listdir(path)):
-        test = open(f'{path}{folder}/vectors.test.pickle', 'rb')
-
-        x = pickle.load(test)
-        if np.isnan(x[0]):
-            continue
-        xs.append((x, folder))
-
-    def pr(xs, others, path):
-        for vec, name in tqdm(xs):
-            with open(f'{path}{name}/similar.txt', 'a') as s1:
-                y, names = zip(*others)
-                sims = cosine_similarity([vec], y)
-                for sim, folder in zip(sims, names):
-                    # s1.write(f'{sim} {folder}\n')
-                    # with open(f'{path}{folder}/similar.txt', 'a') as s2:
-                    #   s2.write(f'{sim} {name}\n')
-                    ...
-                        
-    jobs = []
-    for i, chunk in enumerate(chunks(xs, 4)):
-        p = Process(target=pr, args=(chunk, others[i * len(chunk):],path,))
-        jobs.append(p)
-        p.start()
-
 def get_query(tsv_stream):
     for row in tsv_stream:
         yield row[1]
 
-def queries_to_vector(nlp, tsv_stream):
+def queries_to_vector(nlp, tokenizer, tsv_stream):
     query_stream = map(lambda query: query[:-1], tsv_stream)
     
     data_subset = []
     query_subset = []
-    for doc in nlp.pipe(query_stream):
-        if doc.text == '-':
+    last_query = ""
+    for doc in tqdm(nlp.pipe(query_stream)):
+        ## Keep only english queries
+        if doc._.ld != 'en':
             continue
 
-        data_subset.append(doc.vector)
-        query_subset.append(doc.text)
-        if len(data_subset) == 1_000_000:
+        ## Remove duplicate queries
+        if doc.text == last_query:
+            continue
+        last_query = doc.text
+
+        ## Try to fix spelling errors
+        # for token in doc:
+        #     if token._.hunspell_spell == False:
+        #         print("found:", token.text)
+        #         input()
+
+        ## Remove oov and stopwords
+        without_stopwords = [
+            token.text
+            for token in doc
+            if not token.is_stop and not token.is_oov
+        ]
+
+        if len(without_stopwords) == 0:
+            continue
+
+        ## Normalized queries
+        # normalized = [
+        #     token.lemma_
+        #     for token in without_stopwords
+        # ]
+
+        # if len(normalized) == 0:
+        #     continue
+
+        q = ' '.join(without_stopwords)
+        dq = tokenizer(q)
+
+        data_subset.append(dq.vector)
+        query_subset.append(dq.text)
+
+        if len(data_subset) == 10_000:
             break
 
     return data_subset, query_subset
@@ -202,8 +170,9 @@ def reduce_dimensions(data_subset, n_components):
     pca_of_n = PCA(n_components)
     return pca_of_n.fit_transform(data_subset)
 
-def cluster_data(data):
-    return DBSCAN(eps=0.01, min_samples=5, n_jobs=4).fit(data)
+def cluster_data(data, e, s):
+    return OPTICS(eps=e, min_samples=s, n_jobs=4).fit(data)
+    # return DBSCAN(eps=0.01, min_samples=2, n_jobs=4).fit(data)
     # return KMeans(n_clusters=20).fit(data)
 
 def save_scatterplot(savefile, x, y, hue):
@@ -217,18 +186,22 @@ def vector_to_scatterplot(data_subset, query_subset, savefile):
 
     reduced_data = reduce_dimensions(data_subset, 50)
 
-    clustered_data = cluster_data(reduced_data)
+    # Grid search for parameters
+    for e in [10, 1, 0.1, 0.01, 0.001]:
+        for s in [2,3,4,5,6,7,8,10]:
+            print(f'params e={e}, s={s}')
+            clustered_data = cluster_data(reduced_data, e, s)
 
-    with open('result_queries.txt', 'w') as f:
-        for pair in zip(clustered_data.labels_, query_subset):
-            f.write(f'{str(pair)}\n')
+            with open(f'outputs/e{e}-s{s}-result_queries.txt', 'w') as f:
+                for pair in zip(clustered_data.labels_, query_subset):
+                    f.write(f'{str(pair)}\n')
 
-    print("tsne start")
-    tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000, n_jobs=4)
-    tsne_results = tsne.fit_transform(reduced_data)
-    print("tsne finished")
+            print("tsne start")
+            tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000, n_jobs=4)
+            tsne_results = tsne.fit_transform(reduced_data)
+            print("tsne finished")
 
-    save_scatterplot(savefile, tsne_results[:,0], tsne_results[:,1], clustered_data.labels_)
+            save_scatterplot(f'outputs/e{e}-s{s}-{savefile}', tsne_results[:,0], tsne_results[:,1], clustered_data.labels_)
 
 def skip_first_row(stream):
     next(stream)
@@ -257,10 +230,10 @@ def divide_queries_based_on_time(tsv_stream):
         value.close()
 
 def main():
-    archives = [
-        download_and_save(url)
-        for url in urls
-    ]
+    # archives = [
+    #     download_and_save(url)
+    #     for url in urls
+    # ]
     
     # userIgnoreList = ['AnonID']
 
@@ -278,7 +251,10 @@ def main():
     # path = 'data/users/individual/'
 
     # folders = divide_queries_based_on_time(get_text_from_gzip(archives))
-    data, queries = queries_to_vector(get_pipe(), open('5 25', 'r'))
+    nlp = get_pipe()
+    tokenizer = get_tokenizer(nlp)
+
+    data, queries = queries_to_vector(nlp, tokenizer, open('5 25', 'r'))
     vector_to_scatterplot(data, queries, 'query_cluster.pdf')
 
     # queries_to_folders(get_text_from_gzip(archives), textStatsCollectors, userIgnoreList)
