@@ -1,6 +1,6 @@
 import spacy
 from spacy.tokens import Doc
-from spacy_hunspell import spaCyHunSpell
+# from spacy_hunspell import spaCyHunSpell
 # from spacy_langdetect import LanguageDetector
 
 import langdetect

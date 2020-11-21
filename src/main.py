@@ -5,7 +5,7 @@ import datetime
 
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
-from sklearn.cluster import DBSCAN, KMeans, OPTICS
+from sklearn.cluster import DBSCAN, KMeans, OPTICS, AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
 
 import pickle
@@ -26,11 +26,10 @@ from processors.dictionaryOfTokens import DictionaryOfTokens
 from processors.averageQueryLength import AverageQueryLength
 from processors.averageNumberOfQueriesPerUser import AverageNumberOfQueriesPerUser 
 
-
-def chunks(l, n):
-    """Yield n number of striped chunks from l."""
-    for i in range(0, n):
-        yield l[i::n]
+# def chunks(l, n):
+#     """Yield n number of striped chunks from l."""
+#     for i in range(0, n):
+#         yield l[i::n]
 
 def queries_to_folders(tsv_stream, textStatsCollectors, userIgnoreList):
     openFilesList = dict()
@@ -161,9 +160,6 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
         data_subset.append(dq.vector)
         query_subset.append(dq.text)
 
-        if len(data_subset) == 10_000:
-            break
-
     return data_subset, query_subset
 
 def reduce_dimensions(data_subset, n_components):
@@ -171,8 +167,9 @@ def reduce_dimensions(data_subset, n_components):
     return pca_of_n.fit_transform(data_subset)
 
 def cluster_data(data, e, s):
-    return OPTICS(eps=e, min_samples=s, n_jobs=4).fit(data)
-    # return DBSCAN(eps=0.01, min_samples=2, n_jobs=4).fit(data)
+    return AgglomerativeClustering(n_clusters=None, linkage='ward', compute_full_tree=True, distance_threshold=e, memory="/tmp/sklearn.tmp").fit(data)
+    # return OPTICS(eps=e, min_samples=s, cluster_method='dbscan', n_jobs=-1).fit(data)
+    # return DBSCAN(eps=e, min_samples=s, n_jobs=8).fit(data)
     # return KMeans(n_clusters=20).fit(data)
 
 def save_scatterplot(savefile, x, y, hue):
@@ -184,11 +181,12 @@ def save_scatterplot(savefile, x, y, hue):
 
 def vector_to_scatterplot(data_subset, query_subset, savefile):
 
-    reduced_data = reduce_dimensions(data_subset, 50)
+    # reduced_data = reduce_dimensions(data_subset, 50)
+    reduced_data = data_subset
 
     # Grid search for parameters
-    for e in [10, 1, 0.1, 0.01, 0.001]:
-        for s in [2,3,4,5,6,7,8,10]:
+    for e in [15]:
+        for s in ['inf']: 
             print(f'params e={e}, s={s}')
             clustered_data = cluster_data(reduced_data, e, s)
 
@@ -197,7 +195,7 @@ def vector_to_scatterplot(data_subset, query_subset, savefile):
                     f.write(f'{str(pair)}\n')
 
             print("tsne start")
-            tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000, n_jobs=4)
+            tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000, n_jobs=8)
             tsne_results = tsne.fit_transform(reduced_data)
             print("tsne finished")
 
@@ -230,10 +228,10 @@ def divide_queries_based_on_time(tsv_stream):
         value.close()
 
 def main():
-    # archives = [
-    #     download_and_save(url)
-    #     for url in urls
-    # ]
+    archives = [
+        download_and_save(url)
+        for url in urls
+    ]
     
     # userIgnoreList = ['AnonID']
 
@@ -250,11 +248,26 @@ def main():
 
     # path = 'data/users/individual/'
 
-    # folders = divide_queries_based_on_time(get_text_from_gzip(archives))
+    folders = divide_queries_based_on_time(get_text_from_gzip(archives))
+    
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
 
     data, queries = queries_to_vector(nlp, tokenizer, open('5 25', 'r'))
+
+    with open('data.pkl', 'wb') as df:
+        pickle.dump(data, df)
+    with open('queries.pkl', 'wb') as qf:
+        pickle.dump(queries, qf)
+
+    # data = None
+    # with open('data.pkl', 'rb') as df:
+    #     data = pickle.load(df)
+
+    # queries = None
+    # with open('queries.pkl', 'rb') as qf:
+    #     queries = pickle.load(qf)        
+        
     vector_to_scatterplot(data, queries, 'query_cluster.pdf')
 
     # queries_to_folders(get_text_from_gzip(archives), textStatsCollectors, userIgnoreList)
