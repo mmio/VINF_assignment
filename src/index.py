@@ -13,7 +13,10 @@ from org.apache.lucene.util import Version
 def init():
   lucene.initVM()
   
-  path = Paths.get("index/")
+  path = "index/"
+  if sys.argv[1] == 'norm':
+    path = Paths.get("index_norm/")
+    
   indexDir = SimpleFSDirectory(path)
 
   writerConfig = IndexWriterConfig(StandardAnalyzer())
@@ -21,15 +24,20 @@ def init():
  
 if __name__ == "__main__":
   writer = init()
+
+  cluster = 'clusters'
+  if sys.argv[1] == 'norm':
+    cluster = 'clusters_norm'
   
   for folder in os.listdir('data/dates/'):
-    path = f'data/dates/{folder}/clusters/'
+    path = f'data/dates/{folder}/{cluster}/'
     if os.path.exists(path):
+      print(f'indexing {folder}')
       for sub_folder in os.listdir(path):
         with open(f'{path}{sub_folder}', 'r') as cluster_file:
+          print(f'cluster {sub_folder}')
           text = cluster_file.read()
-          print(text)
-          
+
           doc = Document()
           doc.add(Field("cluster_id", f'{folder}_{sub_folder}', TextField.TYPE_STORED))
           doc.add(Field("content", text, TextField.TYPE_STORED))

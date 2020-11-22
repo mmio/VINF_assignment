@@ -14,10 +14,15 @@ from org.apache.lucene.util import Version
 if __name__ == "__main__":
     lucene.initVM()
     analyzer = StandardAnalyzer()
-    reader = DirectoryReader.open(SimpleFSDirectory(Paths.get("index/")))
+
+    path = Paths.get("index/")
+    if sys.argv[1] == 'norm':
+        path = Paths.get("index_norm/")
+        
+    reader = DirectoryReader.open(SimpleFSDirectory(path))
     searcher = IndexSearcher(reader)
  
-    query = QueryParser("content", analyzer).parse("sears")
+    query = QueryParser("content", analyzer).parse(sys.argv[2])
     MAX = 1000
     hits = searcher.search(query, MAX)
  

@@ -1,3 +1,4 @@
+import sys
 import os
 import numpy as np
 from tqdm import tqdm
@@ -124,7 +125,7 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
     query_norm_subset = []
     
     last_query = ""
-    for doc in tqdm(nlp.pipe(query_stream)):
+    for doc in tqdm(nlp.pipe(query_stream, disable=['ner', 'tagger'])):
         ## Keep only english queries
         if doc._.ld != 'en':
             continue
@@ -277,18 +278,19 @@ def main():
 
     # path = 'data/users/individual/'
 
-    divide_queries_based_on_time(get_text_from_gzip(archives))
+#    divide_queries_based_on_time(get_text_from_gzip(archives))
 
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
 
     path = f'data/dates/'
-    for folder in os.listdir(path):
-        data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r'))
-        labels = vector_to_scatterplot(data, queries, folder)
-        labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, sufix='_norm')
-        with open(f'{path}{folder}/cluster_similarity', 'w') as f:
-            f.write(str(adjusted_rand_score(labels, labels_norm)))
+    for folder in tqdm(os.listdir(path)):
+        if folder in sys.argv:
+            data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r'))
+            labels = vector_to_scatterplot(data, queries, folder)
+            labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, sufix='_norm')
+            with open(f'{path}{folder}/cluster_similarity', 'w') as f:
+                f.write(str(adjusted_rand_score(labels, labels_norm)))
 
     # queries_to_folders(get_text_from_gzip(archives), textStatsCollectors, userIgnoreList)
     # tokenize_queries(get_pipe(), path, docStatsCollectors)
