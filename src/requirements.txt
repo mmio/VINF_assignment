@@ -3,4 +3,4 @@ spacy
 matplotlib
 sklearn
 seaborn
-# spacy-langdetect
+langdetect

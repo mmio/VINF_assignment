@@ -5,8 +5,9 @@ import datetime
 
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
-from sklearn.cluster import DBSCAN, KMeans, OPTICS
+from sklearn.cluster import DBSCAN, KMeans, OPTICS, AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.cluster import adjusted_rand_score
 
 import pickle
 import contextlib
@@ -117,8 +118,12 @@ def get_query(tsv_stream):
 def queries_to_vector(nlp, tokenizer, tsv_stream):
     query_stream = map(lambda query: query[:-1], tsv_stream)
     
-    data_subset = []
+    vector_subset = []
+    vector_norm_subset = []
+
     query_subset = []
+    query_norm_subset = []
+    
     last_query = ""
     for doc in tqdm(nlp.pipe(query_stream)):
         ## Keep only english queries
@@ -147,31 +152,43 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
             continue
 
         ## Normalized queries
-        # normalized = [
-        #     token.lemma_
-        #     for token in without_stopwords
-        # ]
+        normalized = [
+            token.lemma_
+            for token in doc
+            if not token.is_stop and not token.is_oov
+        ]
 
-        # if len(normalized) == 0:
-        #     continue
+        if len(normalized) == 0:
+            continue
 
         q = ' '.join(without_stopwords)
         dq = tokenizer(q)
-
-        data_subset.append(dq.vector)
+        vector_subset.append(dq.vector)
         query_subset.append(dq.text)
 
-        if len(data_subset) == 10_000:
+        q = ' '.join(normalized)
+        dq = tokenizer(q)
+        vector_norm_subset.append(dq.vector)
+        query_norm_subset.append(dq.text)
+
+        if len(vector_subset) == 1000:
             break
 
-    return data_subset, query_subset
+    return vector_subset, vector_norm_subset, query_subset, query_norm_subset
 
 def reduce_dimensions(data_subset, n_components):
     pca_of_n = PCA(n_components)
     return pca_of_n.fit_transform(data_subset)
 
 def cluster_data(data, e, s):
-    return OPTICS(eps=e, min_samples=s, n_jobs=4).fit(data)
+    return AgglomerativeClustering(
+        n_clusters=None,
+        linkage='ward',
+        compute_full_tree=True,
+        distance_threshold=e,
+        memory="/tmp/sklearn.tmp"
+    ).fit(data)
+    # return OPTICS(eps=e, min_samples=s, n_jobs=4).fit(data)
     # return DBSCAN(eps=0.01, min_samples=2, n_jobs=4).fit(data)
     # return KMeans(n_clusters=20).fit(data)
 
@@ -182,17 +199,26 @@ def save_scatterplot(savefile, x, y, hue):
     )
     plt.savefig(savefile)
 
-def vector_to_scatterplot(data_subset, query_subset, savefile):
+def vector_to_scatterplot(data_subset, query_subset, savefolder, sufix=''):
 
-    reduced_data = reduce_dimensions(data_subset, 50)
-
+    # reduced_data = reduce_dimensions(data_subset, 50)
+    reduced_data = data_subset
+    labels = None
     # Grid search for parameters
-    for e in [10, 1, 0.1, 0.01, 0.001]:
-        for s in [2,3,4,5,6,7,8,10]:
+    for e in [15]:
+        for s in ['inf']:
             print(f'params e={e}, s={s}')
+
             clustered_data = cluster_data(reduced_data, e, s)
 
-            with open(f'outputs/e{e}-s{s}-result_queries.txt', 'w') as f:
+            os.mkdir(f'data/dates/{savefolder}/clusters{sufix}')
+            for cluster_id, query in zip(clustered_data.labels_, query_subset):
+                with open(f'data/dates/{savefolder}/clusters{sufix}/{cluster_id}', 'a') as f:
+                    f.write(f'{query}\n')
+
+            labels = clustered_data.labels_
+
+            with open(f'data/dates/{savefolder}/e{e}-s{s}-result_queries{sufix}.txt', 'w') as f:
                 for pair in zip(clustered_data.labels_, query_subset):
                     f.write(f'{str(pair)}\n')
 
@@ -201,7 +227,10 @@ def vector_to_scatterplot(data_subset, query_subset, savefile):
             tsne_results = tsne.fit_transform(reduced_data)
             print("tsne finished")
 
-            save_scatterplot(f'outputs/e{e}-s{s}-{savefile}', tsne_results[:,0], tsne_results[:,1], clustered_data.labels_)
+            with open(f'data/dates/{savefolder}/cluster_labels{sufix}.txt', 'w') as f:
+                f.write(str(clustered_data.labels_))
+            save_scatterplot(f'data/dates/{savefolder}/e{e}-s{s}-{savefolder}{sufix}.pdf', tsne_results[:,0], tsne_results[:,1], clustered_data.labels_)
+    return labels
 
 def skip_first_row(stream):
     next(stream)
@@ -221,7 +250,9 @@ def divide_queries_based_on_time(tsv_stream):
         time = time_to_datetime(row[2])
 
         if not days.get(f'{time.month} {time.day}', False):
-            days.update({f'{time.month} {time.day}': open(f'{time.month} {time.day}', 'a')})
+            folder = f'data/dates/{time.month}_{time.day}'
+            os.mkdir(folder)
+            days.update({f'{time.month} {time.day}': open(f'{folder}/queries', 'a')})
 
         fp = days.get(f'{time.month} {time.day}')
         fp.write(f'{row[1]}\n')
@@ -230,10 +261,10 @@ def divide_queries_based_on_time(tsv_stream):
         value.close()
 
 def main():
-    # archives = [
-    #     download_and_save(url)
-    #     for url in urls
-    # ]
+    archives = [
+        download_and_save(url)
+        for url in urls
+    ]
     
     # userIgnoreList = ['AnonID']
 
@@ -250,12 +281,17 @@ def main():
 
     # path = 'data/users/individual/'
 
-    # folders = divide_queries_based_on_time(get_text_from_gzip(archives))
+    # divide_queries_based_on_time(get_text_from_gzip(archives))
+
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
+    folder = '5_27'
 
-    data, queries = queries_to_vector(nlp, tokenizer, open('5 25', 'r'))
-    vector_to_scatterplot(data, queries, 'query_cluster.pdf')
+    data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'data/dates/{folder}/queries', 'r'))
+    labels = vector_to_scatterplot(data, queries, folder)
+    labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, sufix='_norm')
+    with open(f'data/dates/{folder}/cluster_similarity', 'w') as f:
+        f.write(str(adjusted_rand_score(labels, labels_norm)))
 
     # queries_to_folders(get_text_from_gzip(archives), textStatsCollectors, userIgnoreList)
     # tokenize_queries(get_pipe(), path, docStatsCollectors)
