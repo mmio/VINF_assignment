@@ -170,9 +170,6 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
         vector_norm_subset.append(dq.vector)
         query_norm_subset.append(dq.text)
 
-        if len(vector_subset) == 1000:
-            break
-
     return vector_subset, vector_norm_subset, query_subset, query_norm_subset
 
 def reduce_dimensions(data_subset, n_components):
@@ -280,17 +277,18 @@ def main():
 
     # path = 'data/users/individual/'
 
-    # divide_queries_based_on_time(get_text_from_gzip(archives))
+    divide_queries_based_on_time(get_text_from_gzip(archives))
 
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
-    folder = '5_27'
 
-    data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'data/dates/{folder}/queries', 'r'))
-    labels = vector_to_scatterplot(data, queries, folder)
-    labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, sufix='_norm')
-    with open(f'data/dates/{folder}/cluster_similarity', 'w') as f:
-        f.write(str(adjusted_rand_score(labels, labels_norm)))
+    path = f'data/dates/'
+    for folder in os.listdir(path):
+        data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r'))
+        labels = vector_to_scatterplot(data, queries, folder)
+        labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, sufix='_norm')
+        with open(f'{path}{folder}/cluster_similarity', 'w') as f:
+            f.write(str(adjusted_rand_score(labels, labels_norm)))
 
     # queries_to_folders(get_text_from_gzip(archives), textStatsCollectors, userIgnoreList)
     # tokenize_queries(get_pipe(), path, docStatsCollectors)
