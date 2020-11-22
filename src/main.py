@@ -220,7 +220,7 @@ def vector_to_scatterplot(data_subset, query_subset, savefolder, sufix=''):
                     f.write(f'{str(pair)}\n')
 
             print("tsne start")
-            tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000, n_jobs=8)
+            tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000, n_jobs=1)
             tsne_results = tsne.fit_transform(reduced_data)
             print("tsne finished")
 

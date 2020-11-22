@@ -10,20 +10,17 @@ from org.apache.lucene.index import IndexWriter, IndexWriterConfig
 from org.apache.lucene.store import SimpleFSDirectory
 from org.apache.lucene.util import Version
 
-def init():
+if __name__ == "__main__":
   lucene.initVM()
   
-  path = "index/"
+  path = Paths.get("index/")
   if sys.argv[1] == 'norm':
     path = Paths.get("index_norm/")
     
   indexDir = SimpleFSDirectory(path)
 
   writerConfig = IndexWriterConfig(StandardAnalyzer())
-  return IndexWriter(indexDir, writerConfig)
- 
-if __name__ == "__main__":
-  writer = init()
+  writer = IndexWriter(indexDir, writerConfig)
 
   cluster = 'clusters'
   if sys.argv[1] == 'norm':
