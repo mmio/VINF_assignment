@@ -126,7 +126,7 @@ def vector_to_scatterplot(data_subset, query_subset, savefolder, sufix=''):
     # reduced_data = reduce_dimensions(data_subset, 50)
     reduced_data = data_subset
     labels = []
-    avg_similarity_of_clusters = []
+    # avg_similarity_of_clusters = []
     # Grid search for parameters
     for e in [15]:
         for s in ['inf']:
@@ -155,20 +155,28 @@ def vector_to_scatterplot(data_subset, query_subset, savefolder, sufix=''):
             #     f.write(str(clustered_data.labels_))
             # save_scatterplot(f'data/dates/{savefolder}/e{e}-s{s}-{savefolder}{sufix}.pdf', tsne_results[:,0], tsne_results[:,1], clustered_data.labels_)
     
-            avgs = []
-            for label in set(labels):
-                vecs = [
-                    x[1]
-                    for x in filter(
-                        lambda x: x[0] == label,
-                        zip(labels, data_subset)
-                    )   
-                ]
-                sims = cosine_similarity(vecs)
+            # save cluster data to folder, for further comparison
+            # avgs = []
+            os.mkdir(f'data/dates/{savefolder}/cluster_dump{sufix}')
 
-                avg = np.mean(list(map(lambda x: np.mean(x), sims)))
-                avgs.append(avg)
-            print(np.mean(avgs))
+            for label in set(labels):
+                with open(f'data/dates/{savefolder}/cluster_dump{sufix}/{label}', 'wb') as fh:
+                    for i in range(len(labels)):
+                        if labels[i] == label:
+                            # vecs.append(data_subset[i])
+                            pickle.dump(data_subset[i], fh)
+                print(label)
+
+                # save/dump(label, vecs)
+                # a potom porovnam iba token
+                # with open(f'data/dates/{savefolder}/cluster_dump{sufix}/{label}', 'wb') as fh:
+                #     pickle.dump(vecs, fh)
+                
+            #     sims = cosine_similarity(vecs)
+
+            #     avg = np.mean(list(map(lambda x: np.mean(x), sims)))
+            #     avgs.append(avg)
+            # print(np.mean(avgs))
 
     return labels
 
@@ -216,7 +224,7 @@ def main():
 
     # path = 'data/users/individual/'
 
-    divide_queries_based_on_time(get_text_from_gzip(archives))
+    # divide_queries_based_on_time(get_text_from_gzip(archives))
 
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
