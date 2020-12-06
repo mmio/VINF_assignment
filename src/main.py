@@ -9,6 +9,7 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import DBSCAN, KMeans, OPTICS, AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.cluster import adjusted_rand_score
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 import pickle
 import contextlib
@@ -29,6 +30,7 @@ from processors.averageQueryLength import AverageQueryLength
 from processors.averageNumberOfQueriesPerUser import AverageNumberOfQueriesPerUser
 
 from MultipleOpenFiles import MultipleOpenFiles
+from joblib import Memory
 
 def get_query(tsv_stream):
     for row in tsv_stream:
@@ -108,7 +110,7 @@ def cluster_data(data, e, s):
         linkage='ward',
         compute_full_tree=True,
         distance_threshold=e,
-        memory="/tmp/sklearn.tmp"
+        memory=Memory('./cachedir')
     ).fit(data)
     # return OPTICS(eps=e, min_samples=s, n_jobs=4).fit(data)
     # return DBSCAN(eps=0.01, min_samples=2, n_jobs=4).fit(data)
@@ -194,7 +196,7 @@ def divide_queries_based_on_time(tsv_stream):
                 continue
             
             querytime = isotime_to_datetime(row[2])
-            fileId = f'{querytime.month}_{querytime.day}'
+            fileId = f'{querytime.month}_{querytime.day}_{querytime.hour // 8}'
 
             if not files.get(fileId):
                 folder = f'data/dates/{fileId}'
@@ -208,6 +210,10 @@ def main():
         download_and_save(url)
         for url in urls
     ]
+
+    # vectorizer = TfidfVectorizer()
+    # X = vectorizer.fit_transform(map(lambda row: row[1], get_text_from_gzip(archives)))
+    # print(X)
     
     # userIgnoreList = ['AnonID']
 
@@ -224,7 +230,7 @@ def main():
 
     # path = 'data/users/individual/'
 
-    # divide_queries_based_on_time(get_text_from_gzip(archives))
+    divide_queries_based_on_time(get_text_from_gzip(archives))
 
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
