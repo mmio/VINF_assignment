@@ -36,8 +36,8 @@ if __name__ == "__main__":
           text = cluster_file.read()
 
           doc = Document()
-          doc.add(Field("cluster_id", f'{folder}_{sub_folder}', TextField.TYPE_STORED))
-          doc.add(Field("content", text, TextField.TYPE_STORED))
+          doc.add(Field("cluster_id", f'{folder}_{sub_folder}', TextField.TYPE_UNINDEXED))
+          doc.add(Field("content", text, TextField.TYPE_UNSTORED))
           writer.addDocument(doc) 
 
 #  with open('data/dates/5_25/queries', 'r') as f:

@@ -9,7 +9,7 @@ class HistogramOfTokens(Processor):
         self.counter2 = Counter()
         self.destination = destination
     
-    def add_doc(self, doc, userId):
+    def add_doc(self, doc, userId=0):
         self.counter.update([token.text for token in doc])
         self.counter2.update([token.lemma_ for token in doc])
 
