@@ -237,7 +237,7 @@ def main():
 
     path = f'data/dates/'
     for folder in tqdm(os.listdir(path)):
-        if folder not in sys.argv:
+        if folder in sys.argv:
             data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r'))
             
             if len(data) <= 1:
