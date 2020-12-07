@@ -4,9 +4,11 @@ import numpy as np
 from tqdm import tqdm
 import datetime
 
+import concurrent.futures
+
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
-from sklearn.cluster import DBSCAN, KMeans, OPTICS, AgglomerativeClustering
+from sklearn.cluster import DBSCAN, KMeans, OPTICS, AgglomerativeClustering, Birch
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.cluster import adjusted_rand_score
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -108,13 +110,14 @@ def reduce_dimensions(data_subset, n_components):
     return pca_of_n.fit_transform(data_subset)
 
 def cluster_data(data, e, s):
-    return AgglomerativeClustering(
-        n_clusters=None,
-        linkage='ward',
-        compute_full_tree=True,
-        distance_threshold=e,
-        memory=Memory('./cachedir', verbose=0)
-    ).fit(data)
+    # return AgglomerativeClustering(
+    #     n_clusters=None,
+    #     linkage='ward',
+    #     compute_full_tree=True,
+    #     distance_threshold=e,
+    #     memory=Memory('./cachedir', verbose=0)
+    # ).fit(data)
+    return Birch(n_clusters=500).fit(data)
     # return OPTICS(eps=e, min_samples=s, n_jobs=4).fit(data)
     # return DBSCAN(eps=0.01, min_samples=2, n_jobs=4).fit(data)
     # return KMeans(n_clusters=20).fit(data)
@@ -138,6 +141,7 @@ def vector_to_scatterplot(data_subset, query_subset, savefolder, sufix=''):
             # print(f'params e={e}, s={s}')
             if len(reduced_data) == 0:
                 break
+
             clustered_data = cluster_data(reduced_data, e, s)
 
             os.mkdir(f'data/dates/{savefolder}/clusters{sufix}')
@@ -185,9 +189,9 @@ def vector_to_scatterplot(data_subset, query_subset, savefolder, sufix=''):
 
     return labels
 
-def skip_first_row(stream):
-    next(stream)
-    return stream
+# def skip_first_row(stream):
+#     next(stream)
+#     return stream
 
 def isotime_to_datetime(str_time):
     return datetime.datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
@@ -199,8 +203,7 @@ def divide_queries_based_on_time(tsv_stream):
                 continue
             
             querytime = isotime_to_datetime(row[2])
-            # fileId = f'{querytime.month}_{querytime.day}_{querytime.hour // 8}'
-            fileId = f'{querytime.month}_{querytime.day}_{querytime.hour // 6}'
+            fileId = f'{querytime.month}_{querytime.day}'
 
             if not files.get(fileId):
                 folder = f'data/dates/{fileId}'
@@ -208,6 +211,13 @@ def divide_queries_based_on_time(tsv_stream):
                 files.add(fileId, f'{folder}/queries')
 
             files.writeline(fileId, row[1])
+
+def equality_divide_array(array, n_of_batches):
+    segment_len = len(array) // n_of_batches
+
+    for batch_id in range(0, n_of_batches):
+        offset = batch_id * segment_len
+        yield array[offset: offset + segment_len]
 
 def main():
     archives = [
@@ -235,26 +245,60 @@ def main():
     # path = 'data/users/individual/'
 
     divide_queries_based_on_time(get_text_from_gzip(archives))
+    
+    path = f'data/dates/'
+    days = os.listdir(path)
+    day_batches = equality_divide_array(days, 2)
+    
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = []
+        for batch in day_batches:
+            futures.append(executor.submit(process, folders=batch, path=path))
 
+        for future in concurrent.futures.as_completed(futures):
+            print(future.result())
+
+
+    # nlp = get_pipe()
+    # tokenizer = get_tokenizer(nlp)
+
+    
+    # for folder in tqdm(os.listdir(path)):
+    #     if folder not in sys.argv:
+
+
+            # data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r'))
+
+            # if len(data) <= 1:
+            #     continue
+
+            # labels = vector_to_scatterplot(data, queries, folder)
+            
+            # if len(labels) == 0:
+            #     continue
+            
+            # labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, sufix='_norm')
+            # with open(f'{path}{folder}/cluster_similarity', 'w') as f:
+            #     f.write(str(adjusted_rand_score(labels, labels_norm)))
+
+def process(path, folders):
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
 
-    path = f'data/dates/'
-    for folder in tqdm(os.listdir(path)):
-        if folder not in sys.argv:
-            data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r'))
+    for folder in folders:
+        data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r'))
 
-            if len(data) <= 1:
-                continue
+        if len(data) <= 1:
+            continue
 
-            labels = vector_to_scatterplot(data, queries, folder)
-            
-            if len(labels) == 0:
-                continue
-            
-            labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, sufix='_norm')
-            with open(f'{path}{folder}/cluster_similarity', 'w') as f:
-                f.write(str(adjusted_rand_score(labels, labels_norm)))
+        labels = vector_to_scatterplot(data, queries, folder)
+        
+        if len(labels) == 0:
+            continue
+        
+        labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, sufix='_norm')
+        with open(f'{path}{folder}/cluster_similarity', 'w') as f:
+            f.write(str(adjusted_rand_score(labels, labels_norm)))
 
 if __name__ == '__main__':
     main()
