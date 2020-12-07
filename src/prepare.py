@@ -3,15 +3,17 @@ import csv
 import gzip
 import itertools
 
-import multiprocessing
+def skip_first_row(stream):
+    next(stream)
+    return stream
 
 def get_text_from_gzip(archives):
     # unzip multiple files
     text_streams = map(
         lambda archive:
-            io.TextIOWrapper(
-                gzip.GzipFile(fileobj=archive, mode='r')
-            ),
+            skip_first_row(
+                    io.TextIOWrapper(
+                        gzip.GzipFile(fileobj=archive, mode='r'))),
         archives)
 
     # combine iterators
