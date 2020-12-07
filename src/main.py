@@ -1,11 +1,12 @@
 import sys
+import warnings
 import os
 import numpy as np
 from tqdm import tqdm
 import datetime
 
 import concurrent.futures
-
+from collections import Counter
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from sklearn.cluster import DBSCAN, KMeans, OPTICS, AgglomerativeClustering, Birch
@@ -42,15 +43,15 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
     # hot = HistogramOfQueries('data/global_stats/')
     query_stream = map(lambda query: query[:-1], tsv_stream)
     
-    vector_subset = []
-    vector_norm_subset = []
+    # vector_subset = []
+    # vector_norm_subset = []
 
-    query_subset = []
-    query_norm_subset = []
+    # query_subset = []
+    # query_norm_subset = []
 
     uniq_queries = set(query_stream)
 
-    for doc in tqdm(nlp.pipe(uniq_queries, disable=['ner', 'tagger'])):
+    for doc in nlp.pipe(uniq_queries, disable=['ner', 'tagger']):
         ## Keep only english queries
         if doc._.ld != 'en':
             continue
@@ -93,17 +94,19 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
 
         q = ' '.join(without_stopwords)
         dq = tokenizer(q)
-        vector_subset.append(dq.vector)
-        query_subset.append(dq.text)
+        # vector_subset.append(dq.vector)
+        # query_subset.append(dq.text)
 
-        q = ' '.join(normalized)
-        dq = tokenizer(q)
-        vector_norm_subset.append(dq.vector)
-        query_norm_subset.append(dq.text)
+        qq = ' '.join(normalized)
+        dqq = tokenizer(qq)
+        # vector_norm_subset.append(dqq.vector)
+        # query_norm_subset.append(dqq.text)
+
+        yield dq.vector, dqq.vector, dq.text, dqq.text
 
     # hot.save()
     # hot = None
-    return vector_subset, vector_norm_subset, query_subset, query_norm_subset
+    # return vector_subset, vector_norm_subset, query_subset, query_norm_subset
 
 def reduce_dimensions(data_subset, n_components):
     pca_of_n = PCA(n_components)
@@ -129,7 +132,12 @@ def save_scatterplot(savefile, x, y, hue):
     )
     plt.savefig(savefile)
 
-def vector_to_scatterplot(data_subset, query_subset, savefolder, sufix=''):
+def online_cluster(model, data, e, s):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return model.partial_fit(data)
+
+def vector_to_scatterplot(data_subset, query_subset, savefolder, model, sufix=''):
 
     # reduced_data = reduce_dimensions(data_subset, 50)
     reduced_data = data_subset
@@ -142,7 +150,11 @@ def vector_to_scatterplot(data_subset, query_subset, savefolder, sufix=''):
             if len(reduced_data) == 0:
                 break
 
-            clustered_data = cluster_data(reduced_data, e, s)
+            # clustered_data = cluster_data(reduced_data, e, s)
+            clustered_data = online_cluster(model, np.expand_dims(reduced_data, axis=0), e, s)
+
+            labels = clustered_data.labels_
+            continue
 
             os.mkdir(f'data/dates/{savefolder}/clusters{sufix}')
             for cluster_id, query in zip(clustered_data.labels_, query_subset):
@@ -248,7 +260,7 @@ def main():
     
     path = f'data/dates/'
     days = os.listdir(path)
-    day_batches = equality_divide_array(days, 2)
+    day_batches = equality_divide_array(days, 4)
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
@@ -285,20 +297,34 @@ def process(path, folders):
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
 
+    cl_model = Birch(n_clusters=500)
     for folder in folders:
-        data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r'))
+        print(f'doing {folder}')
+        for data, data_norm, queries, queries_norm in queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r')):
+            # print(data)
+            # print(queries)
+            # exit(1)
 
-        if len(data) <= 1:
-            continue
+            if len(data) <= 1:
+                continue
 
-        labels = vector_to_scatterplot(data, queries, folder)
+            vector_to_scatterplot(data, queries, folder, cl_model)
         
-        if len(labels) == 0:
-            continue
+            # if len(labels) == 0:
+            #     continue
         
-        labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, sufix='_norm')
-        with open(f'{path}{folder}/cluster_similarity', 'w') as f:
-            f.write(str(adjusted_rand_score(labels, labels_norm)))
+        ls = []
+        for data, data_norm, queries, queries_norm in queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r')):
+            ls.append((queries, cl_model.predict(np.expand_dims(data, axis=0))))
+        
+        print('writing')
+        with open(f'readme{folder}.txt', 'w') as f:
+            for item in ls:
+                f.write(f'{str(item)}\n')
+                
+            # labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, cl_model, sufix='_norm')
+        # with open(f'{path}{folder}/cluster_similarity', 'w') as f:
+            # f.write(str(adjusted_rand_score(labels, labels_norm)))
 
 if __name__ == '__main__':
     main()
