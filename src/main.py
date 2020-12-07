@@ -37,7 +37,7 @@ def get_query(tsv_stream):
         yield row[1]
 
 def queries_to_vector(nlp, tokenizer, tsv_stream):
-    hot = HistogramOfQueries('data/global_stats/')
+    # hot = HistogramOfQueries('data/global_stats/')
     query_stream = map(lambda query: query[:-1], tsv_stream)
     
     vector_subset = []
@@ -45,19 +45,13 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
 
     query_subset = []
     query_norm_subset = []
-    # subset = set()
-    # norm_subset = set()
 
-    last_query = ""
-    for doc in tqdm(nlp.pipe(query_stream, disable=['ner', 'tagger'])):
+    uniq_queries = set(query_stream)
+
+    for doc in tqdm(nlp.pipe(uniq_queries, disable=['ner', 'tagger'])):
         ## Keep only english queries
         if doc._.ld != 'en':
             continue
-
-        ## Remove duplicate queries
-        if doc.text == last_query:
-            continue
-        last_query = doc.text
 
         ## Try to fix spelling errors
         # for token in doc:
@@ -93,23 +87,20 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
             continue
 
         ## collect stats for the day
-        hot.add_doc(doc, 0)
+        # hot.add_doc(doc, 0)
 
         q = ' '.join(without_stopwords)
         dq = tokenizer(q)
         vector_subset.append(dq.vector)
         query_subset.append(dq.text)
-        # subset.add((dq.vector, dq.text))
 
         q = ' '.join(normalized)
         dq = tokenizer(q)
-        # norm_subset.add((dq.vector, dq.text))
         vector_norm_subset.append(dq.vector)
         query_norm_subset.append(dq.text)
 
-    hot.save()
-    hot = None
-    print('Length ', len(query_subset))
+    # hot.save()
+    # hot = None
     return vector_subset, vector_norm_subset, query_subset, query_norm_subset
 
 def reduce_dimensions(data_subset, n_components):
@@ -122,7 +113,7 @@ def cluster_data(data, e, s):
         linkage='ward',
         compute_full_tree=True,
         distance_threshold=e,
-        memory=Memory('./cachedir')
+        memory=Memory('./cachedir', verbose=0)
     ).fit(data)
     # return OPTICS(eps=e, min_samples=s, n_jobs=4).fit(data)
     # return DBSCAN(eps=0.01, min_samples=2, n_jobs=4).fit(data)
@@ -209,7 +200,7 @@ def divide_queries_based_on_time(tsv_stream):
             
             querytime = isotime_to_datetime(row[2])
             # fileId = f'{querytime.month}_{querytime.day}_{querytime.hour // 8}'
-            fileId = f'{querytime.month}_{querytime.day}'
+            fileId = f'{querytime.month}_{querytime.day}_{querytime.hour // 6}'
 
             if not files.get(fileId):
                 folder = f'data/dates/{fileId}'
@@ -250,9 +241,9 @@ def main():
 
     path = f'data/dates/'
     for folder in tqdm(os.listdir(path)):
-        if folder in sys.argv:
+        if folder not in sys.argv:
             data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r'))
-            
+
             if len(data) <= 1:
                 continue
 
@@ -264,9 +255,6 @@ def main():
             labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, sufix='_norm')
             with open(f'{path}{folder}/cluster_similarity', 'w') as f:
                 f.write(str(adjusted_rand_score(labels, labels_norm)))
-
-            exit(1)
-
 
 if __name__ == '__main__':
     main()
