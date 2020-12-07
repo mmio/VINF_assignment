@@ -130,7 +130,7 @@ def vector_to_scatterplot(data_subset, query_subset, savefolder, sufix=''):
     labels = []
     # avg_similarity_of_clusters = []
     # Grid search for parameters
-    for e in [15]:
+    for e in [5]:
         for s in ['inf']:
             # print(f'params e={e}, s={s}')
             if len(reduced_data) == 0:
@@ -167,7 +167,7 @@ def vector_to_scatterplot(data_subset, query_subset, savefolder, sufix=''):
                         if labels[i] == label:
                             # vecs.append(data_subset[i])
                             pickle.dump(data_subset[i], fh)
-                print(label)
+                # print(label)
 
                 # save/dump(label, vecs)
                 # a potom porovnam iba token
