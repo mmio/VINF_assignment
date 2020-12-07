@@ -109,6 +109,7 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
 
     hot.save()
     hot = None
+    print('Length ', len(query_subset))
     return vector_subset, vector_norm_subset, query_subset, query_norm_subset
 
 def reduce_dimensions(data_subset, n_components):
