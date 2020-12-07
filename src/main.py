@@ -196,7 +196,8 @@ def divide_queries_based_on_time(tsv_stream):
                 continue
             
             querytime = isotime_to_datetime(row[2])
-            fileId = f'{querytime.month}_{querytime.day}_{querytime.hour // 8}'
+            # fileId = f'{querytime.month}_{querytime.day}_{querytime.hour // 8}'
+            fileId = f'{querytime.month}_{querytime.day}'
 
             if not files.get(fileId):
                 folder = f'data/dates/{fileId}'
