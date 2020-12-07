@@ -79,12 +79,12 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
         #     if not token.is_stop and not token.is_oov
         # ]
 
-        normalized = []
-        without_stopwords = []
+        normalized = ''
+        without_stopwords = ''
         for token in doc:
             if not token.is_stop and not token.is_oov:
-                normalized.append(token.lemma_)
-                without_stopwords.append(token.text)
+                normalized = f'{normalized} {token.lemma}'
+                without_stopwords = f'{without_stopwords} {token.text}'
 
         if len(normalized) == 0:
             continue
@@ -92,13 +92,13 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
         ## collect stats for the day
         # hot.add_doc(doc, 0)
 
-        q = ' '.join(without_stopwords)
-        dq = tokenizer(q)
+        # q = ' '.join(without_stopwords)
+        dq = tokenizer(without_stopwords)
         # vector_subset.append(dq.vector)
         # query_subset.append(dq.text)
 
-        qq = ' '.join(normalized)
-        dqq = tokenizer(qq)
+        # qq = ' '.join(normalized)
+        dqq = tokenizer(normalized)
         # vector_norm_subset.append(dqq.vector)
         # query_norm_subset.append(dqq.text)
 
@@ -151,7 +151,7 @@ def vector_to_scatterplot(data_subset, query_subset, savefolder, model, sufix=''
                 break
 
             # clustered_data = cluster_data(reduced_data, e, s)
-            clustered_data = online_cluster(model, np.expand_dims(reduced_data, axis=0), e, s)
+            clustered_data = online_cluster(model, reduced_data, e, s)
 
             labels = clustered_data.labels_
             continue
@@ -208,6 +208,18 @@ def vector_to_scatterplot(data_subset, query_subset, savefolder, model, sufix=''
 def isotime_to_datetime(str_time):
     return datetime.datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
 
+def iter_by_batch(iter, n):
+    acc = []
+    for item in iter:
+        acc.append(item)
+
+        if len(acc) == n:
+            yield acc
+            acc = []
+
+    if len(acc) != 0:
+        yield acc
+
 def divide_queries_based_on_time(tsv_stream):
     with MultipleOpenFiles() as files:
         for row in tqdm(tsv_stream):
@@ -260,16 +272,15 @@ def main():
     
     path = f'data/dates/'
     days = os.listdir(path)
-    day_batches = equality_divide_array(days, 4)
+    day_batches = list(equality_divide_array(days, 3))
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
         for batch in day_batches:
-            futures.append(executor.submit(process, folders=batch, path=path))
+            futures.append(executor.submit(process, path=path, folders=batch))
 
         for future in concurrent.futures.as_completed(futures):
             print(future.result())
-
 
     # nlp = get_pipe()
     # tokenizer = get_tokenizer(nlp)
@@ -298,12 +309,17 @@ def process(path, folders):
     tokenizer = get_tokenizer(nlp)
 
     cl_model = Birch(n_clusters=500)
+    batch_size = 100
     for folder in folders:
         print(f'doing {folder}')
-        for data, data_norm, queries, queries_norm in queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r')):
-            # print(data)
-            # print(queries)
-            # exit(1)
+        for coll in iter_by_batch(queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r')), batch_size):
+            print(f'{folder} iterating')
+            unzipped = list(zip(*coll))
+
+            data = np.array(unzipped[0])
+            data_norm = np.array(unzipped[1])
+            queries = unzipped[2]
+            queries_norm = unzipped[3]
 
             if len(data) <= 1:
                 continue
@@ -314,8 +330,17 @@ def process(path, folders):
             #     continue
         
         ls = []
-        for data, data_norm, queries, queries_norm in queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r')):
-            ls.append((queries, cl_model.predict(np.expand_dims(data, axis=0))))
+        for coll in iter_by_batch(queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r')), batch_size):
+            unzipped = list(zip(*coll))
+
+            data = unzipped[0]
+            data_norm = unzipped[1]
+            queries = unzipped[2]
+            queries_norm = unzipped[3]
+
+            cl_model.predict(data)
+
+            # ls.append((queries, cl_model.predict(np.expand_dims(data, axis=0))))
         
         print('writing')
         with open(f'readme{folder}.txt', 'w') as f:
@@ -325,6 +350,7 @@ def process(path, folders):
             # labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, cl_model, sufix='_norm')
         # with open(f'{path}{folder}/cluster_similarity', 'w') as f:
             # f.write(str(adjusted_rand_score(labels, labels_norm)))
+
 
 if __name__ == '__main__':
     main()
