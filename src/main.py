@@ -4,6 +4,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 import datetime
+import multiprocessing
 
 import concurrent.futures
 from collections import Counter
@@ -272,15 +273,21 @@ def main():
     
     path = f'data/dates/'
     days = os.listdir(path)
-    day_batches = list(equality_divide_array(days, 3))
+    day_batches = list(equality_divide_array(days, 4))
     
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        for batch in day_batches:
-            futures.append(executor.submit(process, path=path, folders=batch))
+    # with concurrent.futures.ThreadPoolExecutor() as executor:
+    #     futures = []
+    #     for batch in day_batches:
+    #         futures.append(executor.submit(process, path=path, folders=batch))
 
-        for future in concurrent.futures.as_completed(futures):
-            print(future.result())
+    #     for future in concurrent.futures.as_completed(futures):
+    #         print(future.result())
+
+    jobs = []
+    for batch in day_batches:
+        p = multiprocessing.Process(target=process, args=(path, batch, ))
+        jobs.append(p)
+        p.start()
 
     # nlp = get_pipe()
     # tokenizer = get_tokenizer(nlp)
@@ -309,7 +316,7 @@ def process(path, folders):
     tokenizer = get_tokenizer(nlp)
 
     cl_model = Birch(n_clusters=500)
-    batch_size = 100
+    batch_size = 300
     for folder in folders:
         print(f'doing {folder}')
         for coll in iter_by_batch(queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r')), batch_size):
