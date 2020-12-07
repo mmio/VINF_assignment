@@ -45,6 +45,8 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
 
     query_subset = []
     query_norm_subset = []
+    # subset = set()
+    # norm_subset = set()
 
     last_query = ""
     for doc in tqdm(nlp.pipe(query_stream, disable=['ner', 'tagger'])):
@@ -64,21 +66,28 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
         #         input()
 
         ## Remove oov and stopwords
-        without_stopwords = [
-            token.text
-            for token in doc
-            if not token.is_stop and not token.is_oov
-        ]
+        # without_stopwords = [
+        #     token.text
+        #     for token in doc
+        #     if not token.is_stop and not token.is_oov
+        # ]
 
-        if len(without_stopwords) == 0:
-            continue
+        # if len(without_stopwords) == 0:
+        #     continue
 
-        ## Normalized queries
-        normalized = [
-            token.lemma_
-            for token in doc
-            if not token.is_stop and not token.is_oov
-        ]
+        # ## Normalized queries
+        # normalized = [
+        #     token.lemma_
+        #     for token in doc
+        #     if not token.is_stop and not token.is_oov
+        # ]
+
+        normalized = []
+        without_stopwords = []
+        for token in doc:
+            if not token.is_stop and not token.is_oov:
+                normalized.append(token.lemma_)
+                without_stopwords.append(token.text)
 
         if len(normalized) == 0:
             continue
@@ -90,9 +99,11 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
         dq = tokenizer(q)
         vector_subset.append(dq.vector)
         query_subset.append(dq.text)
+        # subset.add((dq.vector, dq.text))
 
         q = ' '.join(normalized)
         dq = tokenizer(q)
+        # norm_subset.add((dq.vector, dq.text))
         vector_norm_subset.append(dq.vector)
         query_norm_subset.append(dq.text)
 
