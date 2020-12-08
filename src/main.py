@@ -231,14 +231,14 @@ def process(path, folders):
             data_for_sne.extend(data)
             data_norm_for_sne.extend(data_norm)
         
-        print('writing')
-        with open(f'readme{folder}.txt', 'w') as f:
-            for item in ls:
-                f.write(f'{str(item)}\n')
+        # print('writing')
+        # with open(f'readme{folder}.txt', 'w') as f:
+        #     for item in ls:
+        #         f.write(f'{str(item)}\n')
 
-        with open(f'readme{folder}_norm.txt', 'w') as f:
-            for item in ls_norm:
-                f.write(f'{str(item)}\n')
+        # with open(f'readme{folder}_norm.txt', 'w') as f:
+        #     for item in ls_norm:
+        #         f.write(f'{str(item)}\n')
                 
         # compare clusters of normalized and non-normalized queries
         results = list(zip(*ls))
