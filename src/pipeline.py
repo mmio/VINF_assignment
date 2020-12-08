@@ -1,28 +1,23 @@
 import spacy
+import langdetect
 from spacy.tokens import Doc
 
-import langdetect
+Doc.set_extension("language", default="unknown")
 
-Doc.set_extension("ld", default="unknown")
-
-def ld(doc):
+def language_detector(doc):
     try:
         result = langdetect.detect_langs(doc.text)
         result = str(result[0])[:2]
     except:
         result = 'unknown'
 
-    doc._.ld = result
+    doc._.language = result
 
     return doc
 
 def get_pipe():
     nlp = spacy.load("en_core_web_lg")
-    # nlp.add_pipe(LanguageDetector(), name='language_detector', last=True)
-    # nlp.add_pipe(spaCyHunSpell(nlp, ('en_US.dic', 'en_US.aff')))
-    # nlp.add_pipe(ld, name="ld", last=True)
-
-    # print(nlp.pipe_names)  # ['tagger', 'parser', 'ner', 'print_info']
+    nlp.add_pipe(language_detector, name="language", last=True)
 
     return nlp
 

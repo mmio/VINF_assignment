@@ -41,52 +41,25 @@ def get_query(tsv_stream):
     for row in tsv_stream:
         yield row[1]
 
-def queries_to_vector(nlp, tokenizer, tsv_stream):
+def queries_to_vector(nlp, tokenizer, row_stream):
     # hot = HistogramOfQueries('data/global_stats/')
-    query_stream = map(lambda query: query[:-1], tsv_stream)
-    
-    # vector_subset = []
-    # vector_norm_subset = []
-
-    # query_subset = []
-    # query_norm_subset = []
+    query_stream = map(lambda query: query[:-1], row_stream)
 
     uniq_queries = set(query_stream)
 
     for doc in nlp.pipe(uniq_queries, disable=['ner', 'tagger']):
         ## Keep only english queries
-        # if doc._.ld != 'en':
-        #     continue
-
-        ## Try to fix spelling errors
-        # for token in doc:
-        #     if token._.hunspell_spell == False:
-        #         print("found:", token.text)
-        #         input()
-
-        ## Remove oov and stopwords
-        # without_stopwords = [
-        #     token.text
-        #     for token in doc
-        #     if not token.is_stop and not token.is_oov
-        # ]
-
-        # if len(without_stopwords) == 0:
-        #     continue
-
-        # ## Normalized queries
-        # normalized = [
-        #     token.lemma_
-        #     for token in doc
-        #     if not token.is_stop and not token.is_oov
-        # ]
+        if doc._.language != 'en':
+            continue
 
         normalized = ''
         without_stopwords = ''
         for token in doc:
             if not token.is_stop and not token.is_oov:
-                normalized = f'{normalized} {token.lemma}'
+                normalized = f'{normalized} {token.lemma_}'
                 without_stopwords = f'{without_stopwords} {token.text}'
+        normalized = normalized.lstrip()
+        without_stopwords = without_stopwords.lstrip()
 
         if len(normalized) == 0:
             continue
@@ -94,25 +67,17 @@ def queries_to_vector(nlp, tokenizer, tsv_stream):
         ## collect stats for the day
         # hot.add_doc(doc, 0)
 
-        # q = ' '.join(without_stopwords)
         dq = tokenizer(without_stopwords)
-        # vector_subset.append(dq.vector)
-        # query_subset.append(dq.text)
 
-        # qq = ' '.join(normalized)
         dqq = tokenizer(normalized)
-        # vector_norm_subset.append(dqq.vector)
-        # query_norm_subset.append(dqq.text)
 
         yield dq.vector, dqq.vector, dq.text, dqq.text
 
     # hot.save()
-    # hot = None
-    # return vector_subset, vector_norm_subset, query_subset, query_norm_subset
 
-def reduce_dimensions(data_subset, n_components):
+def reduce_dimensions(data, n_components):
     pca_of_n = PCA(n_components)
-    return pca_of_n.fit_transform(data_subset)
+    return pca_of_n.fit_transform(data)
 
 def cluster_data(data, e, s):
     return Birch(n_clusters=500).fit(data)
@@ -134,87 +99,20 @@ def save_scatterplot(savefile, x, y, hue):
     )
     plt.savefig(savefile)
 
-def online_cluster(model, data, e, s):
+def update_cluster(model, data):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return model.partial_fit(data)
 
-def vector_to_scatterplot(data_subset, query_subset, savefolder, model, sufix=''):
+def online_clustering(data_subset, model):
 
     # reduced_data = reduce_dimensions(data_subset, 50)
     reduced_data = data_subset
-    labels = []
-    # avg_similarity_of_clusters = []
-    # Grid search for parameters
-
-    e = 5
-    s = 'inf'
-
-    # print(f'params e={e}, s={s}')
     
     if len(reduced_data) == 0:
-        return labels
+        return
 
-    # clustered_data = cluster_data(reduced_data, e, s)
-    clustered_data = online_cluster(model, reduced_data, e, s)
-
-    labels = clustered_data.labels_
-    return labels
-
-    os.mkdir(f'data/dates/{savefolder}/clusters{sufix}')
-    for cluster_id, query in zip(clustered_data.labels_, query_subset):
-        with open(f'data/dates/{savefolder}/clusters{sufix}/{cluster_id}', 'a') as f:
-            f.write(f'{query}\n')
-
-    labels = clustered_data.labels_
-
-    with open(f'data/dates/{savefolder}/e{e}-s{s}-result_queries{sufix}.txt', 'w') as f:
-        for pair in zip(clustered_data.labels_, query_subset):
-            f.write(f'{str(pair)}\n')
-
-    # print("tsne start")
-    # tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000, n_jobs=1)
-    # tsne_results = tsne.fit_transform(reduced_data)
-    # print("tsne finished")
-
-    # with open(f'data/dates/{savefolder}/cluster_labels{sufix}.txt', 'w') as f:
-    #     f.write(str(clustered_data.labels_))
-    # save_scatterplot(f'data/dates/{savefolder}/e{e}-s{s}-{savefolder}{sufix}.pdf', tsne_results[:,0], tsne_results[:,1], clustered_data.labels_)
-
-    # save cluster data to folder, for further comparison
-    # avgs = []
-    os.mkdir(f'data/dates/{savefolder}/cluster_dump{sufix}')
-
-    for label in set(labels):
-        with open(f'data/dates/{savefolder}/cluster_dump{sufix}/{label}', 'wb') as fh:
-            for i in range(len(labels)):
-                if labels[i] == label:
-                    # vecs.append(data_subset[i])
-                    pickle.dump(data_subset[i], fh)
-        # print(label)
-
-        # save/dump(label, vecs)
-        # a potom porovnam iba token
-        # with open(f'data/dates/{savefolder}/cluster_dump{sufix}/{label}', 'wb') as fh:
-        #     pickle.dump(vecs, fh)
-        
-    #     sims = cosine_similarity(vecs)
-
-    #     avg = np.mean(list(map(lambda x: np.mean(x), sims)))
-    #     avgs.append(avg)
-    # print(np.mean(avgs))
-
-    return labels
-
-def isotime_to_datetime(str_time):
-    return datetime.datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
-
-def iter_by_batch(iter, n):
-    while True:
-        acc = list(it.islice(iter, n))
-        if len(acc) == 0:
-            break
-        yield acc
+    update_cluster(model, reduced_data)
 
 def divide_queries_based_on_time(tsv_stream):
     with MultipleOpenFiles() as files:
@@ -238,6 +136,16 @@ def equality_divide_array(array, n_of_batches):
         offset = batch_id * segment_len
         yield array[offset: offset + segment_len]
 
+def isotime_to_datetime(str_time):
+    return datetime.datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
+
+def iter_by_batch(iter, n):
+    while True:
+        acc = list(it.islice(iter, n))
+        if len(acc) == 0:
+            break
+        yield acc
+
 def main():
     archives = [
         download_and_save(url)
@@ -247,8 +155,6 @@ def main():
     # vectorizer = TfidfVectorizer()
     # X = vectorizer.fit_transform(map(lambda row: row[1], get_text_from_gzip(archives)))
     # print(X)
-    
-    # userIgnoreList = ['AnonID']
 
     # textStatsCollectors = [
     #     HistogramOfQueries('data/users/global/stats/'),
@@ -261,13 +167,11 @@ def main():
     #     # DictionaryOfTokens('data/users/global/stats/dict.pickle'),
     # ]
 
-    # path = 'data/users/individual/'
-
-    divide_queries_based_on_time(get_text_from_gzip(archives))
+    # divide_queries_based_on_time(get_text_from_gzip(archives))
     
     path = f'data/dates/'
     days = os.listdir(path)
-    day_batches = list(equality_divide_array(days, 4))
+    day_batches = list(equality_divide_array(days, 2))
     
     # with concurrent.futures.ThreadPoolExecutor() as executor:
     #     futures = []
@@ -283,27 +187,6 @@ def main():
         jobs.append(p)
         p.start()
 
-    # nlp = get_pipe()
-    # tokenizer = get_tokenizer(nlp)
-
-    
-    # for folder in tqdm(os.listdir(path)):
-    #     if folder not in sys.argv:
-
-
-            # data, data_norm, queries, queries_norm = queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r'))
-
-            # if len(data) <= 1:
-            #     continue
-
-            # labels = vector_to_scatterplot(data, queries, folder)
-            
-            # if len(labels) == 0:
-            #     continue
-            
-            # labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, sufix='_norm')
-            # with open(f'{path}{folder}/cluster_similarity', 'w') as f:
-            #     f.write(str(adjusted_rand_score(labels, labels_norm)))
 
 def process(path, folders):
     nlp = get_pipe()
@@ -311,28 +194,28 @@ def process(path, folders):
     batch_size = 100
 
     for folder in folders:
-        cl_model = Birch(n_clusters=500)
+        cl_model = Birch(n_clusters=300)
+        cl_model_norm = Birch(n_clusters=300)
 
-        vectors = queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r'))
+        # Memory?
+        vectors = list(queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r')))
 
         print(f'doing {folder}')
-        for coll in iter_by_batch(vectors, batch_size):
-
-            print(f'{folder} iterating')
+        for coll in iter_by_batch(iter(vectors), batch_size):
             unzipped = list(zip(*coll))
 
             data = np.array(unzipped[0])
             data_norm = np.array(unzipped[1])
-            queries = unzipped[2]
-            queries_norm = unzipped[3]
 
             if len(data) <= 1:
                 continue
 
-            vector_to_scatterplot(data, queries, folder, cl_model)
+            online_clustering(data, cl_model)
+            online_clustering(data_norm, cl_model_norm)
         
         ls = []
-        for coll in iter_by_batch(queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r')), batch_size):
+        ls_norm = []
+        for coll in iter_by_batch(iter(vectors), batch_size):
             unzipped = list(zip(*coll))
 
             data = unzipped[0]
@@ -340,18 +223,49 @@ def process(path, folders):
             queries = unzipped[2]
             queries_norm = unzipped[3]
 
-            cl_model.predict(data)
-
-            # ls.append((queries, cl_model.predict(np.expand_dims(data, axis=0))))
+            ls.extend(zip(cl_model.predict(data), queries))
+            ls_norm.extend(zip(cl_model_norm.predict(data_norm), queries_norm))
         
         print('writing')
         with open(f'readme{folder}.txt', 'w') as f:
             for item in ls:
                 f.write(f'{str(item)}\n')
+
+        with open(f'readme{folder}_norm.txt', 'w') as f:
+            for item in ls_norm:
+                f.write(f'{str(item)}\n')
                 
-            # labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, cl_model, sufix='_norm')
+        # labels_norm = vector_to_scatterplot(data_norm, queries_norm, folder, cl_model, sufix='_norm')
         # with open(f'{path}{folder}/cluster_similarity', 'w') as f:
             # f.write(str(adjusted_rand_score(labels, labels_norm)))
+
+
+        # os.mkdir(f'data/dates/{savefolder}/clusters{sufix}')
+        # for cluster_id, query in zip(clustered_data.labels_, query_subset):
+        #     with open(f'data/dates/{savefolder}/clusters{sufix}/{cluster_id}', 'a') as f:
+        #         f.write(f'{query}\n')
+
+        # with open(f'data/dates/{savefolder}/e{e}-s{s}-result_queries{sufix}.txt', 'w') as f:
+        #     for pair in zip(clustered_data.labels_, query_subset):
+        #         f.write(f'{str(pair)}\n')
+
+        # print("tsne start")
+        # tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000, n_jobs=1)
+        # tsne_results = tsne.fit_transform(reduced_data)
+        # print("tsne finished")
+
+        # with open(f'data/dates/{savefolder}/cluster_labels{sufix}.txt', 'w') as f:
+        #     f.write(str(clustered_data.labels_))
+        # save_scatterplot(f'data/dates/{savefolder}/e{e}-s{s}-{savefolder}{sufix}.pdf', tsne_results[:,0], tsne_results[:,1], clustered_data.labels_)
+
+        # save cluster data to folder, for further comparison
+        # os.mkdir(f'data/dates/{savefolder}/cluster_dump{sufix}')
+
+        # for label in set(labels):
+        #     with open(f'data/dates/{savefolder}/cluster_dump{sufix}/{label}', 'wb') as fh:
+        #         for i in range(len(labels)):
+        #             if labels[i] == label:
+        #                 pickle.dump(data_subset[i], fh)
 
 
 if __name__ == '__main__':
