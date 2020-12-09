@@ -204,7 +204,7 @@ def main():
     
     # print(list(map(lambda x: list(x.data), tfidf.transform(['family guy', 'family guy']))))
     # exit(0)
-    compute_stats(n_proc=8)
+    compute_stats(n_proc=4)
 
     # index()
 
