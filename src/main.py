@@ -41,39 +41,40 @@ def get_query(tsv_stream):
     for row in tsv_stream:
         yield row[1]
 
-def queries_to_vector(nlp, tokenizer, row_stream):
-    hot = HistogramOfQueries('data/global_stats/')
-    query_stream = map(lambda query: query[:-1], row_stream)
+def queries_to_vector(nlp, tokenizer, filename):
+    with open(filename, 'r') as row_stream:
+        hot = HistogramOfQueries('data/global_stats/')
+        query_stream = map(lambda query: query[:-1], row_stream)
 
-    uniq_queries = set(query_stream)
+        uniq_queries = set(query_stream)
 
-    for doc in nlp.pipe(uniq_queries, disable=['ner', 'tagger']):
-        ## Keep only english queries
-        if doc._.language != 'en':
-            continue
+        for doc in nlp.pipe(uniq_queries, disable=['ner', 'tagger']):
+            ## Keep only english queries
+            if doc._.language != 'en':
+                continue
 
-        normalized = ''
-        without_stopwords = ''
-        for token in doc:
-            if not token.is_stop and not token.is_oov:
-                normalized = f'{normalized} {token.lemma_}'
-                without_stopwords = f'{without_stopwords} {token.text}'
-        normalized = normalized.lstrip()
-        without_stopwords = without_stopwords.lstrip()
+            normalized = ''
+            without_stopwords = ''
+            for token in doc:
+                if not token.is_stop and not token.is_oov:
+                    normalized = f'{normalized} {token.lemma_}'
+                    without_stopwords = f'{without_stopwords} {token.text}'
+            normalized = normalized.lstrip()
+            without_stopwords = without_stopwords.lstrip()
 
-        if len(normalized) == 0:
-            continue
+            if len(normalized) == 0:
+                continue
 
-        ## collect stats for the day
-        hot.add_doc(doc, 0)
+            ## collect stats for the day
+            hot.add_doc(doc, 0)
 
-        dq = tokenizer(without_stopwords)
+            dq = tokenizer(without_stopwords)
 
-        dqq = tokenizer(normalized)
+            dqq = tokenizer(normalized)
 
-        yield dq.vector, dqq.vector, dq.text, dqq.text
+            yield dq.vector, dqq.vector, dq.text, dqq.text
 
-    hot.save()
+        hot.save()
 
 def reduce_dimensions(data, n_components):
     pca_of_n = PCA(n_components)
@@ -154,14 +155,24 @@ def compute_stats(n_proc, tfidf=None):
     days = os.listdir(path)
     day_batches = list(equality_divide_array(days, n_proc))
 
-    jobs = []
-    for batch in day_batches:
-        p = multiprocessing.Process(target=process_folders, args=(path, batch, tfidf, ))
-        jobs.append(p)
-        p.start()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = []
+        for batch in day_batches:
+            futures.append(executor.submit(process_folders, path=path, folders=batch, tfidf_dict=tfidf))
 
-    for job in jobs:
-        job.join()
+    for future in concurrent.futures.as_completed(futures):
+        print(future.result())
+
+    # process_folders(path, folders=day_batches[int(sys.argv[1])], tfidf_dict=tfidf)
+
+    # jobs = []
+    # for batch in day_batches:
+    #     p = multiprocessing.Process(target=process_folders, args=(path, batch, tfidf, ))
+    #     jobs.append(p)
+    #     p.start()
+
+    # for job in jobs:
+    #     job.join()
 
 def main():
     archives = [
@@ -187,10 +198,11 @@ def main():
 
     divide_queries_based_on_time(get_text_from_gzip(archives))
 
-    tfidf = learn_tfidf(get_text_from_gzip(archives2))
+    # tfidf = learn_tfidf(get_text_from_gzip(archives2))
+    
     # print(list(map(lambda x: list(x.data), tfidf.transform(['family guy', 'family guy']))))
     # exit(0)
-    compute_stats(n_proc=1, tfidf=tfidf)
+    compute_stats(n_proc=8)
 
     # index()
 
@@ -202,19 +214,20 @@ def get_tfidf_rep(queries, dictionary):
 def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=None):
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
-    batch_size = 100
+    batch_size = 1000
 
     for folder in folders:
         cl_model = Birch(n_clusters=300)
         cl_model_norm = Birch(n_clusters=300)
-        cl_model_tfidf = Birch(n_clusters=300)
-        cl_model_norm_tfidf = Birch(n_clusters=300)
+        # cl_model_tfidf = Birch(n_clusters=300)
+        # cl_model_norm_tfidf = Birch(n_clusters=300)
 
-        # Memory?
-        vectors = list(queries_to_vector(nlp, tokenizer, open(f'{path}{folder}/queries', 'r')))
-
+        # Save processed to hdd
+        vectors = queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries')
         print(f'doing {folder}')
-        for coll in iter_by_batch(iter(vectors), batch_size):
+        
+        for coll in iter_by_batch(vectors, batch_size):
+            print(f'iterating {folder}')
             unzipped = list(zip(*coll))
 
             data = np.array(unzipped[0])
@@ -222,27 +235,31 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
             queries = unzipped[2]
             queries_norm = unzipped[3]
 
-            tfidf = get_tfidf_rep(queries, tfidf_dict)
-            tfidf_norm = get_tfidf_rep(queries_norm, tfidf_dict)
+            # tfidf = get_tfidf_rep(queries, tfidf_dict)
+            # tfidf_norm = get_tfidf_rep(queries_norm, tfidf_dict)
 
             if len(data) <= 1:
                 continue
 
             online_clustering(data, cl_model)
             online_clustering(data_norm, cl_model_norm)
-            online_clustering(tfidf, cl_model_tfidf)
-            online_clustering(tfidf_norm, cl_model_norm_tfidf)
+            # online_clustering(tfidf, cl_model_tfidf)
+            # online_clustering(tfidf_norm, cl_model_norm_tfidf)
         
         ls = []
         ls_norm = []
-        ls_tfidf = []
-        ls_norm_tfidf = []
+        # ls_tfidf = []
+        # ls_norm_tfidf = []
 
         vec_for_sne = []
         vec_norm_for_sne = []
-        vec_tfidf = []
-        vec_tfidf_norm = []
-        for coll in iter_by_batch(iter(vectors), batch_size):
+        # vec_tfidf = []
+        # vec_tfidf_norm = []
+
+        
+        vectors = queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries')
+        for coll in iter_by_batch(vectors, batch_size):
+            print(f'iterating 2 {folder}')
             unzipped = list(zip(*coll))
 
             data = unzipped[0]
@@ -251,18 +268,18 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
             queries = unzipped[2]
             queries_norm = unzipped[3]
 
-            tfidf = get_tfidf_rep(queries, tfidf_dict)
-            tfidf_norm = get_tfidf_rep(queries_norm, tfidf_dict)
+            # tfidf = get_tfidf_rep(queries, tfidf_dict)
+            # tfidf_norm = get_tfidf_rep(queries_norm, tfidf_dict)
 
             ls.extend(zip(cl_model.predict(data), queries))
             ls_norm.extend(zip(cl_model_norm.predict(data_norm), queries_norm))
-            ls_tfidf.extend(zip(cl_model_tfidf.predict(tfidf), queries))
-            ls_norm_tfidf.extend(zip(cl_model_norm_tfidf.predict(tfidf_norm), queries_norm))
+            # ls_tfidf.extend(zip(cl_model_tfidf.predict(tfidf), queries))
+            # ls_norm_tfidf.extend(zip(cl_model_norm_tfidf.predict(tfidf_norm), queries_norm))
 
             vec_for_sne.extend(data)
             vec_norm_for_sne.extend(data_norm)
-            vec_tfidf.extend(tfidf.toarray())
-            vec_tfidf_norm.extend(tfidf_norm.toarray())
+            # vec_tfidf.extend(tfidf.toarray())
+            # vec_tfidf_norm.extend(tfidf_norm.toarray())
                 
         # compare clusters of normalized and non-normalized queries
         results = list(zip(*ls))
