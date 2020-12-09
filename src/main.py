@@ -198,11 +198,13 @@ def main():
 
     divide_queries_based_on_time(get_text_from_gzip(archives))
 
+    # preprocess(n_proc=8)
+
     # tfidf = learn_tfidf(get_text_from_gzip(archives2))
     
     # print(list(map(lambda x: list(x.data), tfidf.transform(['family guy', 'family guy']))))
     # exit(0)
-    compute_stats(n_proc=1)
+    compute_stats(n_proc=8)
 
     # index()
 
@@ -224,20 +226,15 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
     tokenizer = get_tokenizer(nlp)
     batch_size = 1000
 
+    ## Pre process normalized
     for folder in folders:
-        print(f'Processing {folder}')
+        print(f'Started processing {folder}')
         with open(f'{path}{folder}/processed', 'wb') as proc_file:
             for coll in queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries'):
-                print(f'Saving process {folder}')
                 pickle.dump(coll, proc_file)
-            break
+            print(f'Finished processing {folder}')
 
-    for folder in folders:
-        print("reading pickle")
-        for coll in read_from_pickle(f'{path}{folder}/processed'):
-            print(coll)
-        break
-
+    print("Finished processing folders")
     exit(0)
 
     for folder in folders:
@@ -246,11 +243,8 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
         # cl_model_tfidf = Birch(n_clusters=300)
         # cl_model_norm_tfidf = Birch(n_clusters=300)
 
-        # Save processed to hdd
-        vectors = queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries')
         print(f'doing {folder}')
-        
-        for coll in iter_by_batch(vectors, batch_size):
+        for coll in iter_by_batch(read_from_pickle(f'{path}{folder}/processed'), batch_size):
             print(f'iterating {folder}')
             unzipped = list(zip(*coll))
 
@@ -280,9 +274,8 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
         # vec_tfidf = []
         # vec_tfidf_norm = []
 
-        
-        vectors = queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries')
-        for coll in iter_by_batch(vectors, batch_size):
+
+        for coll in iter_by_batch(read_from_pickle(f'{path}{folder}/processed'), batch_size):
             print(f'iterating 2 {folder}')
             unzipped = list(zip(*coll))
 
