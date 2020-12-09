@@ -202,7 +202,7 @@ def main():
     
     # print(list(map(lambda x: list(x.data), tfidf.transform(['family guy', 'family guy']))))
     # exit(0)
-    compute_stats(n_proc=8)
+    compute_stats(n_proc=1)
 
     # index()
 
@@ -211,10 +211,34 @@ def main():
 def get_tfidf_rep(queries, dictionary):
     return dictionary.transform(queries)
 
+def read_from_pickle(path):
+    with open(path, 'rb') as file:
+        try:
+            while True:
+                yield pickle.load(file)
+        except EOFError:
+            pass
+
 def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=None):
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
     batch_size = 1000
+
+    for folder in folders:
+        print(f'Processing {folder}')
+        with open(f'{path}{folder}/processed', 'wb') as proc_file:
+            for coll in queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries'):
+                print(f'Saving process {folder}')
+                pickle.dump(coll, proc_file)
+            break
+
+    for folder in folders:
+        print("reading pickle")
+        for coll in read_from_pickle(f'{path}{folder}/processed'):
+            print(coll)
+        break
+
+    exit(0)
 
     for folder in folders:
         cl_model = Birch(n_clusters=300)
