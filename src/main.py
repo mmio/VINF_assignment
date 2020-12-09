@@ -155,24 +155,24 @@ def compute_stats(n_proc, tfidf=None):
     days = os.listdir(path)
     day_batches = list(equality_divide_array(days, n_proc))
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        for batch in day_batches:
-            futures.append(executor.submit(process_folders, path=path, folders=batch, tfidf_dict=tfidf))
+    # with concurrent.futures.ThreadPoolExecutor() as executor:
+    #     futures = []
+    #     for batch in day_batches:
+    #         futures.append(executor.submit(process_folders, path=path, folders=batch, tfidf_dict=tfidf))
 
-    for future in concurrent.futures.as_completed(futures):
-        print(future.result())
+    # for future in concurrent.futures.as_completed(futures):
+    #     print(future.result())
 
     # process_folders(path, folders=day_batches[int(sys.argv[1])], tfidf_dict=tfidf)
 
-    # jobs = []
-    # for batch in day_batches:
-    #     p = multiprocessing.Process(target=process_folders, args=(path, batch, tfidf, ))
-    #     jobs.append(p)
-    #     p.start()
+    jobs = []
+    for batch in day_batches:
+        p = multiprocessing.Process(target=process_folders, args=(path, batch, tfidf, ))
+        jobs.append(p)
+        p.start()
 
-    # for job in jobs:
-    #     job.join()
+    for job in jobs:
+        job.join()
 
 def main():
     archives = [
