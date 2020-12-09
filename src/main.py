@@ -18,6 +18,7 @@ from sklearn.cluster import DBSCAN, KMeans, OPTICS, AgglomerativeClustering, Bir
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.cluster import adjusted_rand_score
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
 
 from multiprocessing import Pool, Process
 from functools import reduce
@@ -77,7 +78,8 @@ def queries_to_vector(nlp, tokenizer, filename):
         hot.save()
 
 def reduce_dimensions(data, n_components):
-    pca_of_n = PCA(n_components)
+    # PCA
+    pca_of_n = TruncatedSVD(n_components)
     return pca_of_n.fit_transform(data)
 
 def cluster_data(data, e, s):
@@ -107,8 +109,8 @@ def update_cluster(model, data):
 
 def online_clustering(data_subset, model):
 
-    # reduced_data = reduce_dimensions(data_subset, 50)
-    reduced_data = data_subset
+    reduced_data = reduce_dimensions(data_subset, 300)
+    # reduced_data = data_subset
 
     update_cluster(model, reduced_data)
 
@@ -129,7 +131,7 @@ def divide_queries_based_on_time(tsv_stream):
 def equality_divide_array(array, n_of_batches):
     segment_len = len(array) // n_of_batches
 
-    for batch_id in range(0, n_of_batches):
+    for batch_id in range(0, n_of_batches + 1):
         offset = batch_id * segment_len
         yield array[offset: offset + segment_len]
 
@@ -150,29 +152,33 @@ def learn_tfidf(row_stream):
             lambda row: row[1],
             row_stream))
 
+def learn_tfidf_2(stream):
+    vectorizer = TfidfVectorizer()
+    return vectorizer.fit(stream)
+
 def compute_stats(n_proc, tfidf=None):
     path = f'data/dates/'
     days = os.listdir(path)
     day_batches = list(equality_divide_array(days, n_proc))
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        for batch in day_batches:
-            futures.append(executor.submit(process_folders, path=path, folders=batch, tfidf_dict=tfidf))
+    # with concurrent.futures.ThreadPoolExecutor() as executor:
+    #     futures = []
+    #     for batch in day_batches:
+    #         futures.append(executor.submit(process_folders, path=path, folders=batch, tfidf_dict=tfidf))
 
-    for future in concurrent.futures.as_completed(futures):
-        print(future.result())
+    # for future in concurrent.futures.as_completed(futures):
+    #     print(future.result())
 
     # process_folders(path, folders=day_batches[int(sys.argv[1])], tfidf_dict=tfidf)
 
-    # jobs = []
-    # for batch in day_batches:
-    #     p = multiprocessing.Process(target=process_folders, args=(path, batch, tfidf, ))
-    #     jobs.append(p)
-    #     p.start()
+    jobs = []
+    for batch in day_batches:
+        p = multiprocessing.Process(target=process_folders, args=(path, batch, tfidf, ))
+        jobs.append(p)
+        p.start()
 
-    # for job in jobs:
-    #     job.join()
+    for job in jobs:
+        job.join()
 
 def main():
     archives = [
@@ -196,7 +202,7 @@ def main():
     #     # DictionaryOfTokens('data/users/global/stats/dict.pickle'),
     # ]
 
-    divide_queries_based_on_time(get_text_from_gzip(archives))
+    # divide_queries_based_on_time(get_text_from_gzip(archives))
 
     # preprocess(n_proc=8)
 
@@ -222,101 +228,106 @@ def read_from_pickle(path):
             pass
 
 def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=None):
-    nlp = get_pipe()
-    tokenizer = get_tokenizer(nlp)
+    # nlp = get_pipe()
+    # tokenizer = get_tokenizer(nlp)
     batch_size = 1000
 
     ## Pre process normalized
-    for folder in folders:
-        print(f'Started processing {folder}')
-        with open(f'{path}{folder}/processed', 'wb') as proc_file:
-            for coll in queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries'):
-                pickle.dump(coll, proc_file)
-            print(f'Finished processing {folder}')
+    # for folder in folders:
+    #     print(f'Started processing {folder}')
+    #     with open(f'{path}{folder}/processed', 'wb') as proc_file:
+    #         for coll in queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries'):
+    #             pickle.dump(coll, proc_file)
+    #         print(f'Finished processing {folder}')
 
-    print("Finished processing folders")
-    exit(0)
+    # print("Finished processing folders")
+    # exit(0)
+
+
 
     for folder in folders:
-        cl_model = Birch(n_clusters=300)
-        cl_model_norm = Birch(n_clusters=300)
-        # cl_model_tfidf = Birch(n_clusters=300)
-        # cl_model_norm_tfidf = Birch(n_clusters=300)
+        print("Learning tfidf of the day")
+        tfidf_dict = learn_tfidf_2(map(lambda x: x[2], read_from_pickle(f'{path}{folder}/processed')))
+
+        # cl_model = Birch(n_clusters=300)
+        # cl_model_norm = Birch(n_clusters=300)
+        cl_model_tfidf = Birch(n_clusters=300)
+        cl_model_norm_tfidf = Birch(n_clusters=300)
 
         print(f'doing {folder}')
         for coll in iter_by_batch(read_from_pickle(f'{path}{folder}/processed'), batch_size):
             print(f'iterating {folder}')
             unzipped = list(zip(*coll))
 
-            data = np.array(unzipped[0])
-            data_norm = np.array(unzipped[1])
+            # data = np.array(unzipped[0])
+            # data_norm = np.array(unzipped[1])
             queries = unzipped[2]
             queries_norm = unzipped[3]
 
-            # tfidf = get_tfidf_rep(queries, tfidf_dict)
-            # tfidf_norm = get_tfidf_rep(queries_norm, tfidf_dict)
+            tfidf = get_tfidf_rep(queries, tfidf_dict)
+            tfidf_norm = get_tfidf_rep(queries_norm, tfidf_dict)
 
-            if len(data) <= 1:
-                continue
+            # if len(data) <= 1:
+            #     continue
 
-            online_clustering(data, cl_model)
-            online_clustering(data_norm, cl_model_norm)
-            # online_clustering(tfidf, cl_model_tfidf)
-            # online_clustering(tfidf_norm, cl_model_norm_tfidf)
+            # online_clustering(data, cl_model)
+            # online_clustering(data_norm, cl_model_norm)
+            online_clustering(tfidf, cl_model_tfidf)
+            online_clustering(tfidf_norm, cl_model_norm_tfidf)
         
-        ls = []
-        ls_norm = []
-        # ls_tfidf = []
-        # ls_norm_tfidf = []
+        # ls = []
+        # ls_norm = []
+        ls_tfidf = []
+        ls_norm_tfidf = []
 
-        vec_for_sne = []
-        vec_norm_for_sne = []
-        # vec_tfidf = []
-        # vec_tfidf_norm = []
+        # vec_for_sne = []
+        # vec_norm_for_sne = []
+        vec_tfidf = []
+        vec_tfidf_norm = []
 
 
         for coll in iter_by_batch(read_from_pickle(f'{path}{folder}/processed'), batch_size):
             print(f'iterating 2 {folder}')
             unzipped = list(zip(*coll))
 
-            data = unzipped[0]
-            data_norm = unzipped[1]
+            # data = unzipped[0]
+            # data_norm = unzipped[1]
 
             queries = unzipped[2]
             queries_norm = unzipped[3]
 
-            # tfidf = get_tfidf_rep(queries, tfidf_dict)
-            # tfidf_norm = get_tfidf_rep(queries_norm, tfidf_dict)
+            tfidf = reduce_dimensions(get_tfidf_rep(queries, tfidf_dict), 300)
+            tfidf_norm = reduce_dimensions(get_tfidf_rep(queries_norm, tfidf_dict), 300)
 
-            ls.extend(zip(cl_model.predict(data), queries))
-            ls_norm.extend(zip(cl_model_norm.predict(data_norm), queries_norm))
-            # ls_tfidf.extend(zip(cl_model_tfidf.predict(tfidf), queries))
-            # ls_norm_tfidf.extend(zip(cl_model_norm_tfidf.predict(tfidf_norm), queries_norm))
+            # ls.extend(zip(cl_model.predict(data), queries))
+            # ls_norm.extend(zip(cl_model_norm.predict(data_norm), queries_norm))
+            ls_tfidf.extend(zip(cl_model_tfidf.predict(tfidf), queries))
+            ls_norm_tfidf.extend(zip(cl_model_norm_tfidf.predict(tfidf_norm), queries_norm))
 
-            vec_for_sne.extend(data)
-            vec_norm_for_sne.extend(data_norm)
-            # vec_tfidf.extend(tfidf.toarray())
-            # vec_tfidf_norm.extend(tfidf_norm.toarray())
+            # vec_for_sne.extend(data)
+            # vec_norm_for_sne.extend(data_norm)
+            vec_tfidf.extend(tfidf)
+            vec_tfidf_norm.extend(tfidf_norm)
                 
         # compare clusters of normalized and non-normalized queries
-        results = list(zip(*ls))
+        results = list(zip(*ls_tfidf))
         labels = results[0]
 
-        results_norm = list(zip(*ls_norm))
+        results_norm = list(zip(*ls_norm_tfidf))
         labels_norm = results_norm[0]
 
-        with open(f'{path}{folder}/cluster_similarity', 'w') as f:
+        with open(f'{path}{folder}/cluster_similarity_tfidf', 'w') as f:
             f.write(str(adjusted_rand_score(labels, labels_norm)))
 
         # save cluster queries
-        os.mkdir(f'{path}{folder}/clusters')
-        for cluster_id, query in ls:
-            with open(f'{path}{folder}/clusters/{cluster_id}', 'a') as f:
+        os.mkdir(f'{path}{folder}/clusters_tfidf')
+        for cluster_id, query in ls_tfidf:
+            with open(f'{path}{folder}/clusters_tfidf/{cluster_id}', 'a') as f:
                 f.write(f'{query}\n')
 
-        os.mkdir(f'{path}{folder}/clusters_norm')
-        for cluster_id, query in ls_norm:
-            with open(f'{path}{folder}/clusters_norm/{cluster_id}', 'a') as f:
+        os.mkdir(f'{path}{folder}/clusters_tfidf_norm')
+        for cluster_id, query in ls_norm_tfidf:
+            with open(f'{path}{folder}/clusters_tfidf_norm/{cluster_id}', 'a') as f:
                 f.write(f'{query}\n')
 
         # def create_scatterplot(data, labels, base_path, sufix):
@@ -340,19 +351,19 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
         #         sufix)
 
         # save cluster of vectors data to folder, for further comparison
-        os.mkdir(f'{path}{folder}/cluster_dump')
+        os.mkdir(f'{path}{folder}/cluster_dump_tfidf')
         for label in set(labels):
-            with open(f'{path}{folder}/cluster_dump/{label}', 'wb') as fh:
+            with open(f'{path}{folder}/cluster_dump_tfidf/{label}', 'wb') as fh:
                 for i in range(len(labels)):
                     if labels[i] == label:
-                        pickle.dump(vec_for_sne[i], fh)
+                        pickle.dump(vec_tfidf[i], fh)
 
-        os.mkdir(f'{path}{folder}/cluster_dump_norm')
+        os.mkdir(f'{path}{folder}/cluster_dump_norm_tfidf')
         for label in set(labels_norm):
-            with open(f'{path}{folder}/cluster_dump_norm/{label}', 'wb') as fh:
+            with open(f'{path}{folder}/cluster_dump_norm_tfidf/{label}', 'wb') as fh:
                 for i in range(len(labels_norm)):
                     if labels_norm[i] == label:
-                        pickle.dump(vec_norm_for_sne[i], fh)
+                        pickle.dump(vec_tfidf_norm[i], fh)
 
 if __name__ == '__main__':
     main()
