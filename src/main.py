@@ -202,7 +202,7 @@ def main():
     #     # DictionaryOfTokens('data/users/global/stats/dict.pickle'),
     # ]
 
-    # divide_queries_based_on_time(get_text_from_gzip(archives))
+    divide_queries_based_on_time(get_text_from_gzip(archives))
 
     # preprocess(n_proc=8)
 
@@ -210,7 +210,7 @@ def main():
     
     # print(list(map(lambda x: list(x.data), tfidf.transform(['family guy', 'family guy']))))
     # exit(0)
-    compute_stats(n_proc=8)
+    compute_stats(n_proc=7)
 
     # index()
 
@@ -233,17 +233,15 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
     batch_size = 1000
 
     ## Pre process normalized
-    # for folder in folders:
-    #     print(f'Started processing {folder}')
-    #     with open(f'{path}{folder}/processed', 'wb') as proc_file:
-    #         for coll in queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries'):
-    #             pickle.dump(coll, proc_file)
-    #         print(f'Finished processing {folder}')
+    for folder in folders:
+        print(f'Started processing {folder}')
+        with open(f'{path}{folder}/processed', 'wb') as proc_file:
+            for coll in queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries'):
+                pickle.dump(coll, proc_file)
+            print(f'Finished processing {folder}')
 
-    # print("Finished processing folders")
-    # exit(0)
-
-
+    print("Finished processing folders")
+    exit(0)
 
     for folder in folders:
         print("Learning tfidf of the day")
