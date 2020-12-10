@@ -200,16 +200,16 @@ def spacy_preprocess(n_proc):
         job.join()
 
 def main():
-    # archives = [
-    #     download_and_save(url)
-    #     for url in urls
-    # ]
+    archives = [
+        download_and_save(url)
+        for url in urls
+    ]
 
-    # divide_queries_based_on_time(get_text_from_gzip(archives))
+    divide_queries_based_on_time(get_text_from_gzip(archives))
 
-    # spacy_preprocess(n_proc=3)
+    spacy_preprocess(n_proc=7)
 
-    compute_stats(n_proc=3)
+    # compute_stats(n_proc=7)
 
     # index()
 
@@ -241,7 +241,7 @@ def preprocess_folders(path, folders):
     print("Finished processing folders")
 
 def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=None):
-    batch_size = 100
+    batch_size = 500
 
     cmodels = [
         ('w2v', Birch(n_clusters=300),
@@ -259,6 +259,7 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
     ]
 
     def train_model(path, cmodel, get_data_and_query):
+        print(f'training model {path}')
         reader = read_from_pickle(f'{path}/processed')
         for coll in iter_by_batch(reader, batch_size):
             print(f'iterating {folder}')
@@ -267,6 +268,8 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
             online_clustering(data, cmodel)
 
     def predict_with_model(path, name, cmodel, get_data_and_query):
+        print(f'predicting with {name}')
+
         label_query_pairs = []
         vectors = []
 
@@ -308,8 +311,6 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
 
         with open(f'{path}{folder}/cluster_similarity', 'w') as sim_file:
             sim_file.write(str(adjusted_rand_score(labels[0], labels[1])))
-
-    exit(0)
 
     # for folder in folders:
     #     print("Learning tfidf of the day")
