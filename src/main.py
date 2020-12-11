@@ -202,16 +202,16 @@ def main():
 
     # spacy_preprocess(n_proc=7)
 
-    path = 'data/dates/'
+    # path = 'data/dates/'
 
-    files = [
-        open(f'{path}{folder}/queries')
-        for folder in os.listdir(path)
-    ]
+    # files = [
+    #     open(f'{path}{folder}/queries')
+    #     for folder in os.listdir(path)
+    # ]
 
-    tfidf = learn_tfidf_2(list(itertools.chain(*files)))
+    # tfidf = learn_tfidf_2(list(itertools.chain(*files)))
 
-    compute_stats(n_proc=1, tfidf=tfidf)
+    compute_stats(n_proc=1, tfidf=None)
 
     # index()
 
@@ -249,15 +249,15 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
         ('w2v', Birch(n_clusters=300),
             lambda uz: (np.array(uz[0]), uz[2])),
         ('w2v_n', Birch(n_clusters=300),
-            lambda uz: (np.array(uz[1]), uz[3])),
-        ('tfidf', Birch(n_clusters=300),
-            lambda uz: (
-                get_tfidf_rep(uz[2], tfidf_dict),
-                uz[2])),
-        ('tfidf_n', Birch(n_clusters=300),
-            lambda uz: (
-                get_tfidf_rep(uz[3], tfidf_dict),
-                uz[3]))
+            lambda uz: (np.array(uz[1]), uz[3]))
+        # ('tfidf', Birch(n_clusters=300),
+        #     lambda uz: (
+        #         get_tfidf_rep(uz[2], tfidf_dict),
+        #         uz[2])),
+        # ('tfidf_n', Birch(n_clusters=300),
+        #     lambda uz: (
+        #         get_tfidf_rep(uz[3], tfidf_dict),
+        #         uz[3]))
     ]
 
     def train_model(path, cmodel, get_data_and_query):
@@ -267,6 +267,7 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
             print(f'iterating {folder}')
             unzipped = list(zip(*coll))
             data, _ = get_data_and_query(unzipped)
+
             online_clustering(data, cmodel)
 
     def create_dir(path):

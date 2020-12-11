@@ -5,7 +5,7 @@ import lucene
 from java.nio.file import Paths
 from java.io import File
 from org.apache.lucene.analysis.standard import StandardAnalyzer
-from org.apache.lucene.document import Document, Field, TextField
+from org.apache.lucene.document import Document, Field, TextField, StringField
 from org.apache.lucene.index import IndexWriter, IndexWriterConfig
 from org.apache.lucene.store import SimpleFSDirectory
 from org.apache.lucene.util import Version
@@ -36,7 +36,7 @@ if __name__ == "__main__":
           text = cluster_file.read()
 
           doc = Document()
-          doc.add(Field("cluster_id", f'{folder}_{sub_folder}', TextField.TYPE_UNINDEXED))
+          doc.add(Field("cluster_id", f'{folder}_{sub_folder}', StringField.TYPE_UNINDEXED))
           doc.add(Field("content", text, TextField.TYPE_UNSTORED))
           writer.addDocument(doc) 
 

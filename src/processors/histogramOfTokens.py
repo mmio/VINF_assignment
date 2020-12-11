@@ -29,6 +29,7 @@ class HistogramOfTokens(Processor):
         plt.bar(*zip(*self.counter2.most_common(150)), width=.4)
         plt.xticks(rotation=90)
         plt.savefig('histogramOfNormalizedTokens.pdf', bbox_inches='tight')
+        # plt.close(), is this a thing?
 
     def get_items(self):
         return self.counter.items()
