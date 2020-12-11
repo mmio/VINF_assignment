@@ -25,21 +25,20 @@ if __name__ == "__main__":
   for subfolder, index in subfolder_index_pairs:
     print(f'Indexing {subfolder} with {index}')
 
-    path = Paths.get(index)
-    indexDir = SimpleFSDirectory(path)
+    indexDir = SimpleFSDirectory(Paths.get(index))
 
-    writerConfig = IndexWriterConfig(StandardAnalyzer())
-    writer = IndexWriter(indexDir, writerConfig)
+    writer = IndexWriter(indexDir, IndexWriterConfig(StandardAnalyzer()))
 
     for day in tqdm(os.listdir('data/dates/')):
       path = f'data/dates/{day}/{subfolder}/'
+
       if os.path.exists(path):
         for cluster_id in os.listdir(path):
           with open(f'{path}{cluster_id}', 'r') as cluster_file:
-            text = cluster_file.read()
-
             doc = Document()
             doc.add(Field("cluster_id", f'{day}-{cluster_id}', TextField.TYPE_STORED))
-            doc.add(Field("content", text, TextField.TYPE_STORED))
+            doc.add(Field("content", cluster_file.read(), TextField.TYPE_STORED))
+
             writer.addDocument(doc)
+
     writer.close()
