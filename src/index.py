@@ -1,7 +1,7 @@
 import os
 import sys
+
 import lucene
- 
 from java.nio.file import Paths
 from java.io import File
 from org.apache.lucene.analysis.standard import StandardAnalyzer
@@ -10,40 +10,36 @@ from org.apache.lucene.index import IndexWriter, IndexWriterConfig
 from org.apache.lucene.store import SimpleFSDirectory
 from org.apache.lucene.util import Version
 
+from tqdm import tqdm
+
 if __name__ == "__main__":
   lucene.initVM()
-  
-  path = Paths.get("index/")
-  if sys.argv[1] == 'norm':
-    path = Paths.get("index_norm/")
-    
-  indexDir = SimpleFSDirectory(path)
 
-  writerConfig = IndexWriterConfig(StandardAnalyzer())
-  writer = IndexWriter(indexDir, writerConfig)
+  subfolder_index_pairs = [
+    ('cluster_w2v', 'index_w2v'),
+    ('cluster_w2v_n', 'index_w2v_n'),
+    ('cluster_tfidf', 'index_tfidf'),
+    ('cluster_tfidf_n', 'index_tfidf_n')
+  ]
 
-  cluster = 'clusters'
-  if sys.argv[1] == 'norm':
-    cluster = 'clusters_norm'
-  
-  for folder in os.listdir('data/dates/'):
-    path = f'data/dates/{folder}/{cluster}/'
-    if os.path.exists(path):
-      print(f'indexing {folder}')
-      for sub_folder in os.listdir(path):
-        with open(f'{path}{sub_folder}', 'r') as cluster_file:
-          print(f'cluster {sub_folder}')
-          text = cluster_file.read()
+  for subfolder, index in subfolder_index_pairs:
+    print(f'Indexing {subfolder} with {index}')
 
-          doc = Document()
-          doc.add(Field("cluster_id", f'{folder}_{sub_folder}', StringField.TYPE_UNINDEXED))
-          doc.add(Field("content", text, TextField.TYPE_UNSTORED))
-          writer.addDocument(doc) 
+    path = Paths.get(index)
+    indexDir = SimpleFSDirectory(path)
 
-#  with open('data/dates/5_25/queries', 'r') as f:
-#    doc = Document()
-#    doc.add(Field("text", f, TextField.TYPE_STORED))
-#    writer.addDocument(doc)
+    writerConfig = IndexWriterConfig(StandardAnalyzer())
+    writer = IndexWriter(indexDir, writerConfig)
 
-  print('Closing writer')
-  writer.close()
+    for day in tqdm(os.listdir('data/dates/')):
+      path = f'data/dates/{day}/{subfolder}/'
+      if os.path.exists(path):
+        for cluster_id in os.listdir(path):
+          with open(f'{path}{cluster_id}', 'r') as cluster_file:
+            text = cluster_file.read()
+
+            doc = Document()
+            doc.add(Field("cluster_id", f'{day}-{cluster_id}', TextField.TYPE_STORED))
+            doc.add(Field("content", text, TextField.TYPE_STORED))
+            writer.addDocument(doc)
+    writer.close()
