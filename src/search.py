@@ -15,6 +15,7 @@ import pickle
 import matplotlib.pyplot as plt
 from pipeline import get_pipe, get_tokenizer
 from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 def read_from_pickle(path):
     with open(path, 'rb') as file:
@@ -27,10 +28,13 @@ def read_from_pickle(path):
 if __name__ == "__main__":
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
-    cluster_vecs = list(read_from_pickle(f'data/dates/3_1/cluster_w2v_dump/0'))
-    search_term_vec = tokenizer('dominik').vector
+    cluster_vecs = None
+    with open(f'data/dates/3_1/cluster_w2v/0') as f:
+        cluster_vecs = [doc.vector for doc in nlp.pipe(f, disable=['tagger', 'ner', 'language'])]
+    search_term_vec = tokenizer('homes').vector.reshape(1, -1)
 
     print(cosine_similarity(search_term_vec, cluster_vecs))
+    print(np.mean(cosine_similarity(search_term_vec, cluster_vecs)))
 
     # lucene.initVM()
     # analyzer = StandardAnalyzer()
