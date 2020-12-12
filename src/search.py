@@ -57,7 +57,15 @@ if __name__ == "__main__":
         flat_months = [item for sublist in month_counter for item in sublist]
         fig, ax = plt.subplots()
         b1 = ax.bar(range(len(flat_months)), flat_months)
-        plt.show()
+
+        labels = []
+        for month in [3,4,5]:
+            for day in range(32):
+                labels.append(f'{month}_{day}')
+
+        ax.set_xticklabels(labels)
+        ax.legend()
+        # plt.show()
         # plt.xticks(rotation=90)
         plt.savefig('search_result.pdf', bbox_inches='tight')
         plt.close() #, is this a thing?
@@ -70,5 +78,8 @@ if __name__ == "__main__":
 
             day = doc.get('day')
             cluster = doc.get('cluster')
+
+            with open(f'data/dates/{day}/w2v_cluster_dump/{cluster}') as f:
+                print(f)
 
             print(day, cluster)
