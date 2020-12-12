@@ -46,8 +46,8 @@ if __name__ == "__main__":
         for hit in hits.scoreDocs:
             doc = searcher.doc(hit.doc)
 
-            month = doc.get('day').split('_')[0]
-            day = doc.get('day').split('_')[1]
+            month = int(doc.get('day').split('_')[0])
+            day = int(doc.get('day').split('_')[1])
 
             month_counter[month-3][day] += 1
 
