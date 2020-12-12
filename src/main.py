@@ -192,6 +192,33 @@ def spacy_preprocess(n_proc):
     for job in jobs:
         job.join()
 
+def collect_global_stats(path):
+    files = [
+        map(lambda x: x[2], read_from_pickle(f'{path}{folder}/processed'))
+        for folder in os.listdir(path)
+    ]
+
+    files_n = [
+        map(lambda x: x[3], read_from_pickle(f'{path}{folder}/processed'))
+        for folder in os.listdir(path)
+    ]
+
+    hoq = HistogramOfQueries('data/global_stats/')
+    hot = HistogramOfTokens('data/global_stats/hot.pdf')
+    for query in tqdm(itertools.chain(*files)):
+        hoq.add_doc(query)
+        hot.add_doc(query)
+    hoq.save()
+    hot.save()
+
+    hoq = HistogramOfQueries('data/global_stats/')
+    hot = HistogramOfTokens('data/global_stats/hot_n.pdf')
+    for query in tqdm(itertools.chain(*files_n)):
+        hoq.add_doc(query)
+        hot.add_doc(query)
+    hoq.save()
+    hot.save()
+
 def main():
     # archives = [
     #     download_and_save(url)
@@ -202,16 +229,18 @@ def main():
 
     # spacy_preprocess(n_proc=7)
 
-    # path = 'data/dates/'
+    path = 'data/dates/'
 
-    # files = [
-    #     open(f'{path}{folder}/queries')
-    #     for folder in os.listdir(path)
-    # ]
+    files = [
+        open(f'{path}{folder}/queries')
+        for folder in os.listdir(path)
+    ]
 
     # tfidf = learn_tfidf_2(list(itertools.chain(*files)))
 
-    compute_stats(n_proc=1, tfidf=None)
+    # collect_global_stats(path)
+
+    # compute_stats(n_proc=1, tfidf=None)
 
     # index()
 
