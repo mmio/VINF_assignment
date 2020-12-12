@@ -18,6 +18,7 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import DBSCAN, KMeans, OPTICS, AgglomerativeClustering, Birch
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.cluster import adjusted_rand_score
+from sklearn.metrics import silhouette_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 
@@ -229,22 +230,24 @@ def main():
 
     # spacy_preprocess(n_proc=7)
 
-    path = 'data/dates/'
+    # path = 'data/dates/'
 
-    files = [
-        open(f'{path}{folder}/queries')
-        for folder in os.listdir(path)
-    ]
+    # files = [
+    #     open(f'{path}{folder}/queries')
+    #     for folder in os.listdir(path)
+    # ]
 
     # tfidf = learn_tfidf_2(list(itertools.chain(*files)))
 
     # collect_global_stats(path)
 
-    # compute_stats(n_proc=1, tfidf=None)
+    compute_stats(n_proc=1, tfidf=None)
+
+    # validate_clusters
 
     # index()
 
-    # compute_stats_with_indexes()
+    # search_indexes()
 
 def get_tfidf_rep(queries, dictionary):
     return dictionary.transform(queries).toarray()
@@ -306,34 +309,42 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
     def predict_with_model(path, name, cmodel, get_data_and_query):
         print(f'predicting with {name}')
 
-        create_dir(f'{path}/{name}')
+        # create_dir(f'{path}/{name}')
 
-        with open(f'{path}/{name}/label_query_vector', 'wb') as label_query_vector:
-            reader = read_from_pickle(f'{path}/processed')
-            for coll in iter_by_batch(reader, batch_size):
-                print(f'iterating ------ {folder}')
-                unzipped = list(zip(*coll))
-                data, queries = get_data_and_query(unzipped)
-                for i in zip(cmodel.predict(data), queries, data):
-                    pickle.dump(i, label_query_vector)
+        # with open(f'{path}/{name}/label_query_vector', 'wb') as label_query_vector:
+        #     reader = read_from_pickle(f'{path}/processed')
+        #     for coll in iter_by_batch(reader, batch_size):
+        #         print(f'iterating ------ {folder}')
+        #         unzipped = list(zip(*coll))
+        #         data, queries = get_data_and_query(unzipped)
+        #         for i in zip(cmodel.predict(data), queries, data):
+        #             pickle.dump(i, label_query_vector)
 
-        create_dir(f'{path}/cluster_{name}')
-        create_dir(f'{path}/cluster_{name}_dump')
+        # create_dir(f'{path}/cluster_{name}')
+        # create_dir(f'{path}/cluster_{name}_dump')
 
-        for label, query, vector in read_from_pickle(f'{path}/{name}/label_query_vector'):
-            with open(f'{path}/cluster_{name}/{label}', 'a') as f:
-                f.write(f'{query}\n')
+        # for label, query, vector in read_from_pickle(f'{path}/{name}/label_query_vector'):
+        #     with open(f'{path}/cluster_{name}/{label}', 'a') as f:
+        #         f.write(f'{query}\n')
 
-            with open(f'{path}/cluster_{name}_dump/{label}', 'wb') as fh:
-                pickle.dump(vector, fh)
+        #     with open(f'{path}/cluster_{name}_dump/{label}', 'wb') as fh:
+        #         pickle.dump(vector, fh)
+
+        coll = list(read_from_pickle(f'{path}/{name}/label_query_vector'))
+        unzipped = list(zip(*coll))
+        labels = unzipped[0]
+        vectors = unzipped[2]
+
+        with open(f'{path}/{name}/silhouette') as f:
+            f.write(str(silhouette_score(vectors, labels)))
     
     for folder in folders:
         labels = []
 
         for name, cmodel, get_data in cmodels:
-            train_model(f'{path}{folder}', cmodel, get_data)
+            # train_model(f'{path}{folder}', cmodel, get_data)
             predict_with_model(f'{path}{folder}', name, cmodel, get_data)
-
+            
             labels.append([
                 label
                 for label, _, _
