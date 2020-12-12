@@ -11,13 +11,13 @@ class HistogramOfQueries(Processor):
         self.counter.update([text])
 
     def save(self):
-        with open(f'{self.destination}histogramOfQueries.json', 'w') as fp:
+        with open(f'{self.destination}.json', 'w') as fp:
             json.dump(self.counter, fp)
 
         plt.figure(figsize=(30,8))
         plt.bar(*zip(*self.counter.most_common(150)), width=.4)
         plt.xticks(rotation=90)
-        plt.savefig('histogramOfQueries.pdf', bbox_inches='tight')
+        plt.savefig(f'{self.destination}.pdf', bbox_inches='tight')
         plt.close() #, is this a thing?
 
     def get_items(self):

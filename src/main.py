@@ -204,16 +204,16 @@ def collect_global_stats(path):
         for folder in os.listdir(path)
     ]
 
-    hoq = HistogramOfQueries('data/global_stats/')
-    hot = HistogramOfTokens('data/global_stats/hot.pdf')
+    hoq = HistogramOfQueries('data/global_stats/hoq')
+    hot = HistogramOfTokens('data/global_stats/hot')
     for query in tqdm(itertools.chain(*files)):
         hoq.add_doc(query)
         hot.add_doc(query)
     hoq.save()
     hot.save()
 
-    hoq = HistogramOfQueries('data/global_stats/')
-    hot = HistogramOfTokens('data/global_stats/hot_n.pdf')
+    hoq = HistogramOfQueries('data/global_stats/hoq_n')
+    hot = HistogramOfTokens('data/global_stats/hot_n')
     for query in tqdm(itertools.chain(*files_n)):
         hoq.add_doc(query)
         hot.add_doc(query)
@@ -327,7 +327,7 @@ def process_folders(path, folders, tfidf_dict=None, additional_stats_collectors=
         #     with open(f'{path}/cluster_{name}/{label}', 'a') as f:
         #         f.write(f'{query}\n')
 
-        #     with open(f'{path}/cluster_{name}_dump/{label}', 'wb') as fh:
+        #     with open(f'{path}/cluster_{name}_dump/{label}', 'ab') as fh:
         #         pickle.dump(vector, fh)
 
         coll = list(read_from_pickle(f'{path}/{name}/label_query_vector'))
