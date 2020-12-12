@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
         flat_months = [item for sublist in month_counter for item in sublist]
         fig, ax = plt.subplots()
-        b1 = ax.bar(range(92), flat_months)
+        b1 = ax.bar(range(len(flat_months)), flat_months)
         plt.show()
         # plt.xticks(rotation=90)
         plt.savefig('search_result.pdf', bbox_inches='tight')
