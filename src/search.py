@@ -24,7 +24,7 @@ if __name__ == "__main__":
         ('cluster_tfidf_n', 'index_tfidf_n')
     ]
 
-    search_term = 'dominik'
+    search_term = sys.argv[1]
 
     for cluster, index in subfolder_index_pairs:
         print(f'searching in {index}')
@@ -38,9 +38,9 @@ if __name__ == "__main__":
         hits = searcher.search(query, MAX)
  
         month_counter = [
-            [0] * 31,
-            [0] * 31,
-            [0] * 31
+            [0] * 32,
+            [0] * 32,
+            [0] * 32
         ]
 
         for hit in hits.scoreDocs:
@@ -52,7 +52,7 @@ if __name__ == "__main__":
             month_counter[month-3][day] += 1
 
             cluster = doc.get('cluster')
-            print(day, cluster)
+            print(month, day, cluster)
 
         flat_months = [item for sublist in month_counter for item in sublist]
         fig, ax = plt.subplots()
