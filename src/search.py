@@ -63,8 +63,7 @@ if __name__ == "__main__":
             for day in range(32):
                 labels.append(f'{month}_{day}')
 
-        ax.set_xticklabels(labels)
-        ax.legend()
+        plt.xlabel(labels)
         # plt.show()
         # plt.xticks(rotation=90)
         plt.savefig('search_result.pdf', bbox_inches='tight')
@@ -79,7 +78,7 @@ if __name__ == "__main__":
             day = doc.get('day')
             cluster = doc.get('cluster')
 
-            with open(f'data/dates/{day}/w2v_cluster_dump/{cluster}') as f:
-                print(f)
+            # with open(f'data/dates/{day}/w2v_cluster_dump/{cluster}') as f:
+            #     print(f)
 
             print(day, cluster)
