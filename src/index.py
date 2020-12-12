@@ -36,7 +36,8 @@ if __name__ == "__main__":
         for cluster_id in os.listdir(path):
           with open(f'{path}{cluster_id}', 'r') as cluster_file:
             doc = Document()
-            doc.add(Field("cluster_id", f'{day}-{cluster_id}', TextField.TYPE_STORED))
+            doc.add(Field("day", day, TextField.TYPE_STORED))
+            doc.add(Field("cluster", cluster_id, TextField.TYPE_STORED))
             doc.add(Field("content", cluster_file.read(), TextField.TYPE_STORED))
 
             writer.addDocument(doc)

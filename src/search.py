@@ -15,18 +15,31 @@ if __name__ == "__main__":
     lucene.initVM()
     analyzer = StandardAnalyzer()
 
-    path = Paths.get("index/")
-    if sys.argv[1] == 'norm':
-        path = Paths.get("index_norm/")
+    subfolder_index_pairs = [
+        ('cluster_w2v', 'index_w2v'),
+        ('cluster_w2v_n', 'index_w2v_n'),
+        ('cluster_tfidf', 'index_tfidf'),
+        ('cluster_tfidf_n', 'index_tfidf_n')
+    ]
+
+    search_term = 'dominik'
+
+    for cluster, index in subfolder_index_pairs:
+        print(f'searching in {index}')
+        path = Paths.get(index)
         
-    reader = DirectoryReader.open(SimpleFSDirectory(path))
-    searcher = IndexSearcher(reader)
+        reader = DirectoryReader.open(SimpleFSDirectory(path))
+        searcher = IndexSearcher(reader)
  
-    query = QueryParser("content", analyzer).parse(sys.argv[2])
-    MAX = 1000
-    hits = searcher.search(query, MAX)
+        query = QueryParser("content", analyzer).parse(search_term)
+        MAX = 1000000
+        hits = searcher.search(query, MAX)
  
-    for hit in hits.scoreDocs:
-        print(hit.score, hit.doc, hit.toString())
-        doc = searcher.doc(hit.doc)
-        print(doc.get("cluster_id"))
+        for hit in hits.scoreDocs:
+            # print(hit.score, hit.doc, hit.toString())
+            doc = searcher.doc(hit.doc)
+
+            day = doc.get('day')
+            cluster = doc.get('cluster')
+            print(day, cluster)
+
