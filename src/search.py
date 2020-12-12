@@ -63,7 +63,7 @@ if __name__ == "__main__":
             for day in range(32):
                 labels.append(f'{month}_{day}')
 
-        plt.xlabel(labels)
+        plt.xticks(range(len(flat_months)), (labels)
         # plt.show()
         # plt.xticks(rotation=90)
         plt.savefig('search_result.pdf', bbox_inches='tight')
