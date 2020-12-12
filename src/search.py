@@ -55,7 +55,7 @@ if __name__ == "__main__":
             print(month, day, cluster)
 
         flat_months = [item for sublist in month_counter for item in sublist]
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(30,8))
         b1 = ax.bar(range(len(flat_months)), flat_months)
 
         labels = []
