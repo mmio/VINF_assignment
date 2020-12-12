@@ -11,6 +11,8 @@ from org.apache.lucene.queryparser.classic import QueryParser
 from org.apache.lucene.store import SimpleFSDirectory
 from org.apache.lucene.util import Version
 
+import matplotlib.pyplot as plt
+
 if __name__ == "__main__":
     lucene.initVM()
     analyzer = StandardAnalyzer()
@@ -35,29 +37,38 @@ if __name__ == "__main__":
         MAX = 1000000
         hits = searcher.search(query, MAX)
  
+        month_counter = [
+            [0] * 31,
+            [0] * 31,
+            [0] * 31
+        ]
+
+        for hit in hits.scoreDocs:
+            doc = searcher.doc(hit.doc)
+
+            month = doc.get('day').split('_')[0]
+            day = doc.get('day').split('_')[1]
+
+            month_counter[month-3][day] += 1
+
+            cluster = doc.get('cluster')
+            print(day, cluster)
+
+        flat_months = [item for sublist in month_counter for item in sublist]
+        fig, ax = plt.subplots()
+        b1 = ax.bar(range(92), flat_months)
+        plt.show()
+        # plt.xticks(rotation=90)
+        plt.savefig('search_result.pdf', bbox_inches='tight')
+        plt.close() #, is this a thing?
+
+
+        # calculate similarity to cluster
         for hit in hits.scoreDocs:
             # print(hit.score, hit.doc, hit.toString())
             doc = searcher.doc(hit.doc)
 
             day = doc.get('day')
             cluster = doc.get('cluster')
+
             print(day, cluster)
-
-                import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    rec = [0]*92
-    rec[1] = 12
-    rec[6] = 44
-    rec[60] = 5
-    b1 = ax.bar(range(92), rec)
-    plt.show()
-    rec1 = [1,2,3]
-    rec2 = [4,5,6]
-    rec1.extend(rec2)
-
-    plt.figure(figsize=(30,8))
-    plt.bar(*zip(*self.counter.most_common(150)), width=.4)
-    plt.xticks(rotation=90)
-    plt.savefig('histogramOfQueries.pdf', bbox_inches='tight')
-    plt.close() #, is this a thing?
-
