@@ -3,17 +3,18 @@ import sys
 import pickle
 import itertools
 from sklearn.feature_extraction.text import TfidfVectorizer
-# import lucene
+
+import lucene
  
-# from java.io import File
-# from java.nio.file import Paths
-# from org.apache.lucene.analysis.standard import StandardAnalyzer
-# from org.apache.lucene.document import Document, Field
-# from org.apache.lucene.search import IndexSearcher
-# from org.apache.lucene.index import IndexReader, DirectoryReader
-# from org.apache.lucene.queryparser.classic import QueryParser
-# from org.apache.lucene.store import SimpleFSDirectory
-# from org.apache.lucene.util import Version
+from java.io import File
+from java.nio.file import Paths
+from org.apache.lucene.analysis.standard import StandardAnalyzer
+from org.apache.lucene.document import Document, Field
+from org.apache.lucene.search import IndexSearcher
+from org.apache.lucene.index import IndexReader, DirectoryReader
+from org.apache.lucene.queryparser.classic import QueryParser
+from org.apache.lucene.store import SimpleFSDirectory
+from org.apache.lucene.util import Version
 
 import matplotlib.pyplot as plt
 from pipeline import get_pipe, get_tokenizer
@@ -29,16 +30,6 @@ def read_from_pickle(path):
             pass
 
 if __name__ == "__main__":
-    # nlp = get_pipe()
-    # tokenizer = get_tokenizer(nlp)
-    # cluster_vecs = None
-    # with open(f'data/dates/3_1/cluster_w2v/0') as f:
-    #     cluster_vecs = [doc.vector for doc in nlp.pipe(f, disable=['tagger', 'ner', 'language'])]
-    # search_term_vec = tokenizer('homes').vector.reshape(1, -1)
-
-    # print(cosine_similarity(search_term_vec, cluster_vecs))
-    # print(np.mean(cosine_similarity(search_term_vec, cluster_vecs)))
-
     lucene.initVM()
     analyzer = StandardAnalyzer()
 
@@ -107,6 +98,33 @@ if __name__ == "__main__":
             return vectorizer.fit(stream)
         tfidf = learn_tfidf_2(list(itertools.chain(*files)))
 
+        # # calculate similarity to cluster
+        # for hit in hits.scoreDocs:
+        #     # print(hit.score, hit.doc, hit.toString())
+        #     doc = searcher.doc(hit.doc)
+
+        #     day = doc.get('day')
+        #     cluster = doc.get('cluster')
+
+        #     cluster_vecs = None
+        #     search_term_vec = None
+        #     with open(f'data/dates/{day}/{cluster_type}/{cluster}') as f:
+        #         file_content = f.read().splitlines()
+        #         if cluster_type in ['cluster_w2v', 'cluster_w2v_n']:
+        #             print('in w2v')
+        #             cluster_vecs = [doc.vector for doc in nlp.pipe(file_content, disable=['tagger', 'ner', 'language'])]
+        #             search_term_vec = tokenizer(search_term).vector.reshape(1, -1)
+        #         else:
+        #             cluster_vecs = tfidf.transform(file_content).toarray()
+        #             search_term_vec = tfidf.transform([search_term]).toarray()
+
+        #         similarities = cosine_similarity(search_term_vec, cluster_vecs)
+
+        #         results = np.argpartition(similarities, -1)[-1:]
+        #         for ind in results:
+        #             print(file_content[ind])
+        #         break
+
         # calculate similarity to cluster
         for hit in hits.scoreDocs:
             # print(hit.score, hit.doc, hit.toString())
@@ -115,21 +133,24 @@ if __name__ == "__main__":
             day = doc.get('day')
             cluster = doc.get('cluster')
 
-            cluster_vecs = None
             search_term_vec = None
-            with open(f'data/dates/{day}/cluster_{cluster_type}/{cluster}') as f:
-                file_content = f.read()
-                if cluster_type in ['cluster_w2v', 'cluster_w2v_n']:
-                    print('in w2v')
-                    cluster_vecs = [doc.vector for doc in nlp.pipe(file_content, disable=['tagger', 'ner', 'language'])]
-                    search_term_vec = tokenizer(search_term).vector.reshape(1, -1)
+            vectors = []
+            for i in read_from_pickle(f'data/dates/{day}/{cluster_type}_dump/{cluster}'):
+                i = i[:300]
+                if len(i) < 300:
+                    vectors.append(np.zeros(300))
                 else:
-                    cluster_vecs = tfidf.transform(file_content).toarray()
-                    search_term_vec = tfidf.transform(search_term).toarray()
+                    vectors.append(i)
 
-                similarities = cosine_similarity(search_term_vec, cluster_vecs)
-                
-                max10 = np.argpartition(similarities, -10)[-4:]
-                print(similarities[max10])
+            if cluster_type in ['cluster_w2v', 'cluster_w2v_n']:
+                search_term_vec = tokenizer(search_term).vector.reshape(1, -1)
+            else:
+                search_term_vec = tfidf.transform([search_term])
 
+            similarities = cosine_similarity(search_term_vec, vectors)[0]
 
+            with open(f'data/dates/{day}/{cluster_type}/{cluster}') as f:
+                file_content = f.read().splitlines()
+                results = np.argpartition(similarities, -1)[-1:]
+                for ind in results:
+                    print(file_content[ind])
