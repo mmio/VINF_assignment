@@ -222,15 +222,15 @@ def process_folders(path, folders, tfidf_dict=None):
             with open(f'{path}/cluster_{name}_dump/{label}', 'ab') as fh:
                 pickle.dump(vector, fh)
 
-        # coll = list(read_from_pickle(f'{path}/{name}/label_query_vector'))
-        # unzipped = list(zip(*coll))
-        # labels = unzipped[0]
-        # vectors = unzipped[2]
+        coll = list(read_from_pickle(f'{path}/{name}/label_query_vector'))
+        unzipped = list(zip(*coll))
+        labels = unzipped[0]
+        vectors = unzipped[2]
 
-        # print(labels)
-        # print(len(vectors))
-        # with open(f'{path}/{name}/silhouette', 'w') as f:
-        #     f.write(str(silhouette_score(vectors, labels)))
+        print(labels)
+        print(len(vectors))
+        with open(f'{path}/{name}/silhouette', 'w') as f:
+            f.write(str(silhouette_score(vectors, labels)))
     
     for folder in folders:
         cmodels = [
