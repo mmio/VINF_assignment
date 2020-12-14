@@ -1,4 +1,4 @@
-destination = 'data/datasets/aol'
+destination = '../data/datasets/aol'
 
 base = 'http://www.cim.mcgill.ca/~dudek/206/Logs/AOL-user-ct-collection/'
 
