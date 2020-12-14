@@ -79,7 +79,7 @@ if __name__ == "__main__":
                 labels.append(f'{month}_{day}')
 
         plt.xticks(range(len(flat_months)), (labels), rotation=90, fontsize='xx-small')
-        plt.savefig('search_result.pdf', bbox_inches='tight')
+        plt.savefig(f'../data/global_stats/search_result.pdf', bbox_inches='tight')
         plt.close()
 
 
