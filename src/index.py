@@ -25,12 +25,12 @@ if __name__ == "__main__":
   for subfolder, index in subfolder_index_pairs:
     print(f'Indexing {subfolder} with {index}')
 
-    indexDir = SimpleFSDirectory(Paths.get(f'data/indices/{index}'))
+    indexDir = SimpleFSDirectory(Paths.get(f'../data/indices/{index}'))
 
     writer = IndexWriter(indexDir, IndexWriterConfig(StandardAnalyzer()))
 
-    for day in tqdm(os.listdir('data/dates/')):
-      path = f'data/dates/{day}/{subfolder}/'
+    for day in tqdm(os.listdir('../data/dates/')):
+      path = f'../data/dates/{day}/{subfolder}/'
 
       if os.path.exists(path):
         for cluster_id in os.listdir(path):
