@@ -23,7 +23,7 @@ def get_text_from_gzip(archives):
     for row in csv.reader(text_stream, delimiter="\t"):
         yield row
         cnt += 1
-        if cnt == 600_000:
+        if cnt == 1_000:
             break
 
     # return csv.reader(text_stream, delimiter="\t")

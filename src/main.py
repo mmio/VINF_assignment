@@ -71,7 +71,7 @@ def divide_queries_based_on_time(tsv_stream):
 
             if not files.get(fileId):
                 folder = f'data/dates/{fileId}'
-                os.mkdir(folder)
+                create_dir(folder)
                 files.add(fileId, f'{folder}/queries')
 
             files.writeline(fileId, row[1])
@@ -182,6 +182,10 @@ def preprocess_folders(path, folders):
             for coll in queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries'):
                 pickle.dump(coll, proc_file)
 
+def create_dir(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
+
 def process_folders(path, folders, tfidf_dict=None):
     batch_size = 100
 
@@ -193,10 +197,6 @@ def process_folders(path, folders, tfidf_dict=None):
             data, _ = get_data_and_query(unzipped)
 
             online_clustering(data, cmodel)
-
-    def create_dir(path):
-        if not os.path.exists(path):
-            os.mkdir(path)
 
     def predict_with_model(path, name, cmodel, get_data_and_query):
         print(f'predicting with {name}')
@@ -222,13 +222,15 @@ def process_folders(path, folders, tfidf_dict=None):
             with open(f'{path}/cluster_{name}_dump/{label}', 'ab') as fh:
                 pickle.dump(vector, fh)
 
-        coll = list(read_from_pickle(f'{path}/{name}/label_query_vector'))
-        unzipped = list(zip(*coll))
-        labels = unzipped[0]
-        vectors = unzipped[2]
+        # coll = list(read_from_pickle(f'{path}/{name}/label_query_vector'))
+        # unzipped = list(zip(*coll))
+        # labels = unzipped[0]
+        # vectors = unzipped[2]
 
-        with open(f'{path}/{name}/silhouette', 'w') as f:
-            f.write(str(silhouette_score(vectors, labels)))
+        # print(labels)
+        # print(len(vectors))
+        # with open(f'{path}/{name}/silhouette', 'w') as f:
+        #     f.write(str(silhouette_score(vectors, labels)))
     
     for folder in folders:
         cmodels = [
@@ -260,31 +262,34 @@ def process_folders(path, folders, tfidf_dict=None):
 
         # read labels, then compare
         with open(f'{path}{folder}/cluster_similarity', 'w') as sim_file:
-            sim_file.write(str(adjusted_rand_score(labels[0], labels[1])))
-            sim_file.write(str(adjusted_rand_score(labels[0], labels[2])))
-            sim_file.write(str(adjusted_rand_score(labels[0], labels[3])))
-            sim_file.write(str(adjusted_rand_score(labels[1], labels[2])))
-            sim_file.write(str(adjusted_rand_score(labels[1], labels[3])))
-            sim_file.write(str(adjusted_rand_score(labels[2], labels[3])))
+            sim_file.write('w2v/w2v_n ' + str(adjusted_rand_score(labels[0], labels[1])) + '\n')
+            sim_file.write('w2v/tfidf ' + str(adjusted_rand_score(labels[0], labels[2])) + '\n')
+            sim_file.write('w2v/tfidf_n ' + str(adjusted_rand_score(labels[0], labels[3])) + '\n')
+            sim_file.write('w2v_n/tfidf ' + str(adjusted_rand_score(labels[1], labels[2])) + '\n')
+            sim_file.write('w2v_n/tfidf_n ' + str(adjusted_rand_score(labels[1], labels[3])) + '\n')
+            sim_file.write('tfidf/tfidf_n ' + str(adjusted_rand_score(labels[2], labels[3])) + '\n')
 
 def main():
-    # archives = [
-    #     download_and_save(url)
-    #     for url in urls
-    # ]
+    create_dir(f'data')
+    create_dir(f'data/datasets')
+    create_dir(f'data/datasets/aol')
+    create_dir(f'data/dates')
+    create_dir(f'data/indices')
+    create_dir(f'data/global_stats')
 
-    # divide_queries_based_on_time(get_text_from_gzip(archives))
+    archives = [
+        download_and_save(url)
+        for url in urls
+    ]
 
-    # spacy_preprocess(n_proc=1)
+    divide_queries_based_on_time(get_text_from_gzip(archives))
 
-    # collect_global_stats()
+    spacy_preprocess(n_proc=3)
+
+    collect_global_stats()
 
     # cluster data
     compute_stats(n_proc=3)
-
-    # index()
-
-    # search_indexes()
 
 if __name__ == '__main__':
     main()
