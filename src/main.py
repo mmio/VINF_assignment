@@ -70,7 +70,7 @@ def divide_queries_based_on_time(tsv_stream):
             fileId = f'{querytime.month}_{querytime.day}'
 
             if not files.get(fileId):
-                folder = f'data/dates/{fileId}'
+                folder = f'../data/dates/{fileId}'
                 create_dir(folder)
                 files.add(fileId, f'{folder}/queries')
 
@@ -98,7 +98,7 @@ def learn_tfidf(stream):
     return vectorizer.fit(stream)
 
 def compute_stats(n_proc, tfidf=None):
-    path = 'data/dates/'
+    path = '../data/dates/'
 
     files = [
         open(f'{path}{folder}/queries')
@@ -120,7 +120,7 @@ def compute_stats(n_proc, tfidf=None):
         job.join()
 
 def spacy_preprocess(n_proc):
-    path = f'data/dates/'
+    path = f'../data/dates/'
     days = os.listdir(path)
     day_batches = list(equality_divide_array(days, n_proc))
 
@@ -134,7 +134,7 @@ def spacy_preprocess(n_proc):
         job.join()
 
 def collect_global_stats():
-    path = f'data/dates/'
+    path = f'../data/dates/'
     files = [
         map(lambda x: x[2], read_from_pickle(f'{path}{folder}/processed'))
         for folder in os.listdir(path)
@@ -145,16 +145,16 @@ def collect_global_stats():
         for folder in os.listdir(path)
     ]
 
-    hoq = HistogramOfQueries('data/global_stats/hoq')
-    hot = HistogramOfTokens('data/global_stats/hot')
+    hoq = HistogramOfQueries('../data/global_stats/hoq')
+    hot = HistogramOfTokens('../data/global_stats/hot')
     for query in tqdm(itertools.chain(*files)):
         hoq.add_doc(query)
         hot.add_doc(query)
     hoq.save()
     hot.save()
 
-    hoq = HistogramOfQueries('data/global_stats/hoq_n')
-    hot = HistogramOfTokens('data/global_stats/hot_n')
+    hoq = HistogramOfQueries('../data/global_stats/hoq_n')
+    hot = HistogramOfTokens('../data/global_stats/hot_n')
     for query in tqdm(itertools.chain(*files_n)):
         hoq.add_doc(query)
         hot.add_doc(query)
@@ -270,12 +270,12 @@ def process_folders(path, folders, tfidf_dict=None):
             sim_file.write('tfidf/tfidf_n ' + str(adjusted_rand_score(labels[2], labels[3])) + '\n')
 
 def main():
-    create_dir(f'data')
-    create_dir(f'data/datasets')
-    create_dir(f'data/datasets/aol')
-    create_dir(f'data/dates')
-    create_dir(f'data/indices')
-    create_dir(f'data/global_stats')
+    create_dir(f'../data')
+    create_dir(f'../data/datasets')
+    create_dir(f'../data/datasets/aol')
+    create_dir(f'../data/dates')
+    create_dir(f'../data/indices')
+    create_dir(f'../data/global_stats')
 
     archives = [
         download_and_save(url)

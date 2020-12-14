@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
     for cluster_type, index in subfolder_index_pairs:
         print(f'searching in {index}')
-        path = Paths.get(f'data/dates/{index}')
+        path = Paths.get(f'../data/indices/{index}')
         
         reader = DirectoryReader.open(SimpleFSDirectory(path))
         searcher = IndexSearcher(reader)
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         nlp = get_pipe()
         tokenizer = get_tokenizer(nlp)
 
-        path = 'data/dates/'
+        path = '../data/dates/'
 
         files = [
             open(f'{path}{folder}/queries')
@@ -97,32 +97,6 @@ if __name__ == "__main__":
             return vectorizer.fit(stream)
         tfidf = learn_tfidf_2(list(itertools.chain(*files)))
 
-        # # calculate similarity to cluster
-        # for hit in hits.scoreDocs:
-        #     # print(hit.score, hit.doc, hit.toString())
-        #     doc = searcher.doc(hit.doc)
-
-        #     day = doc.get('day')
-        #     cluster = doc.get('cluster')
-
-        #     cluster_vecs = None
-        #     search_term_vec = None
-        #     with open(f'data/dates/{day}/{cluster_type}/{cluster}') as f:
-        #         file_content = f.read().splitlines()
-        #         if cluster_type in ['cluster_w2v', 'cluster_w2v_n']:
-        #             print('in w2v')
-        #             cluster_vecs = [doc.vector for doc in nlp.pipe(file_content, disable=['tagger', 'ner', 'language'])]
-        #             search_term_vec = tokenizer(search_term).vector.reshape(1, -1)
-        #         else:
-        #             cluster_vecs = tfidf.transform(file_content).toarray()
-        #             search_term_vec = tfidf.transform([search_term]).toarray()
-
-        #         similarities = cosine_similarity(search_term_vec, cluster_vecs)
-
-        #         results = np.argpartition(similarities, -1)[-1:]
-        #         for ind in results:
-        #             print(file_content[ind])
-        #         break
         avg_sims = []
         top_results = []
         # calculate similarity to cluster
@@ -136,7 +110,7 @@ if __name__ == "__main__":
 
             search_term_vec = None
             vectors = []
-            for i in read_from_pickle(f'data/dates/{day}/{cluster_type}_dump/{cluster}'):
+            for i in read_from_pickle(f'../data/dates/{day}/{cluster_type}_dump/{cluster}'):
                 i = i[:300]
                 if len(i) < 300:
                     vectors.append(np.zeros(300))
@@ -151,7 +125,7 @@ if __name__ == "__main__":
             similarities = cosine_similarity(search_term_vec, vectors)[0]
             avg_sims.append(np.mean(similarities))
 
-            with open(f'data/dates/{day}/{cluster_type}/{cluster}') as f:
+            with open(f'../data/dates/{day}/{cluster_type}/{cluster}') as f:
                 file_content = f.read().splitlines()
                 n = 5
                 if len(similarities) < 5:
