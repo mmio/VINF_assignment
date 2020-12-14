@@ -3,7 +3,7 @@ import sys
 import pickle
 import itertools
 from sklearn.feature_extraction.text import TfidfVectorizer
-
+from tqdm import tqdm
 import lucene
  
 from java.io import File
@@ -34,8 +34,8 @@ if __name__ == "__main__":
     analyzer = StandardAnalyzer()
 
     subfolder_index_pairs = [
-        ('cluster_w2v', 'index_w2v'),
-        ('cluster_w2v_n', 'index_w2v_n'),
+       ('cluster_w2v', 'index_w2v'),
+       ('cluster_w2v_n', 'index_w2v_n'),
         ('cluster_tfidf', 'index_tfidf'),
         ('cluster_tfidf_n', 'index_tfidf_n')
     ]
@@ -68,7 +68,7 @@ if __name__ == "__main__":
             month_counter[month-3][day] += 1
 
             cluster = doc.get('cluster')
-            print(month, day, cluster)
+            #print(month, day, cluster)
 
         flat_months = [item for sublist in month_counter for item in sublist]
         fig, ax = plt.subplots(figsize=(30,8))
@@ -124,9 +124,11 @@ if __name__ == "__main__":
         #         for ind in results:
         #             print(file_content[ind])
         #         break
-
+        avg_sims = []
+        top_results = []
         # calculate similarity to cluster
-        for hit in hits.scoreDocs:
+        print("Calculating similarities")
+        for hit in tqdm(hits.scoreDocs):
             # print(hit.score, hit.doc, hit.toString())
             doc = searcher.doc(hit.doc)
 
@@ -148,9 +150,27 @@ if __name__ == "__main__":
                 search_term_vec = tfidf.transform([search_term])
 
             similarities = cosine_similarity(search_term_vec, vectors)[0]
+            avg_sims.append(np.mean(similarities))
 
             with open(f'data/dates/{day}/{cluster_type}/{cluster}') as f:
                 file_content = f.read().splitlines()
-                results = np.argpartition(similarities, -1)[-1:]
+                n = 5
+                if len(similarities) < 5:
+                    n = len(similarities)
+                results = np.argpartition(similarities, -n)[-n:]
                 for ind in results:
-                    print(file_content[ind])
+                    if cluster_type in ['cluster_w2v']:
+                        if file_content[ind-1] == search_term:
+                            continue
+                        top_results.append((file_content[ind-1], similarities[ind]))
+                    elif cluster_type in ['cluster_w2v_n']:
+                        if file_content[ind] == search_term:
+                            continue
+                        top_results.append((file_content[ind], similarities[ind]))
+                    else:
+                        if file_content[ind] == search_term:
+                            continue
+                        top_results.append((file_content[ind], similarities[ind]))
+        for i in sorted(set(top_results), key=lambda x: x[1], reverse=True)[:10]:
+            print(i[0])
+        print(np.mean(avg_sims))
