@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
     for cluster_type, index in subfolder_index_pairs:
         print(f'searching in {index}')
-        path = Paths.get(index)
+        path = Paths.get(f'data/dates/{index}')
         
         reader = DirectoryReader.open(SimpleFSDirectory(path))
         searcher = IndexSearcher(reader)
@@ -68,7 +68,6 @@ if __name__ == "__main__":
             month_counter[month-3][day] += 1
 
             cluster = doc.get('cluster')
-            #print(month, day, cluster)
 
         flat_months = [item for sublist in month_counter for item in sublist]
         fig, ax = plt.subplots(figsize=(30,8))

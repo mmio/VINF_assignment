@@ -25,7 +25,7 @@ if __name__ == "__main__":
   for subfolder, index in subfolder_index_pairs:
     print(f'Indexing {subfolder} with {index}')
 
-    indexDir = SimpleFSDirectory(Paths.get(index))
+    indexDir = SimpleFSDirectory(Paths.get(f'data/indices/{index}'))
 
     writer = IndexWriter(indexDir, IndexWriterConfig(StandardAnalyzer()))
 
