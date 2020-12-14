@@ -26,7 +26,6 @@ from pipeline import get_pipe, get_tokenizer
 
 from processors.histogramOfTokens import HistogramOfTokens
 from processors.histogramOfQueries import HistogramOfQueries
-
 from MultipleOpenFiles import MultipleOpenFiles
 
 def queries_to_vector(nlp, tokenizer, filename):
@@ -227,8 +226,6 @@ def process_folders(path, folders, tfidf_dict=None):
         labels = unzipped[0]
         vectors = unzipped[2]
 
-        print(labels)
-        print(len(vectors))
         with open(f'{path}/{name}/silhouette', 'w') as f:
             f.write(str(silhouette_score(vectors, labels)))
     
