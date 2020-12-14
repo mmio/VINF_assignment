@@ -27,6 +27,7 @@ from pipeline import get_pipe, get_tokenizer
 from processors.histogramOfTokens import HistogramOfTokens
 from processors.histogramOfQueries import HistogramOfQueries
 from MultipleOpenFiles import MultipleOpenFiles
+from utils import read_from_pickle, equality_divide_array, isotime_to_datetime, iter_by_batch, create_dir
 
 def queries_to_vector(nlp, tokenizer, filename):
     with open(filename, 'r') as row_stream:
@@ -74,23 +75,6 @@ def divide_queries_based_on_time(tsv_stream):
                 files.add(fileId, f'{folder}/queries')
 
             files.writeline(fileId, row[1])
-
-def equality_divide_array(array, n_of_batches):
-    segment_len = len(array) // n_of_batches
-
-    for batch_id in range(0, n_of_batches + 1):
-        offset = batch_id * segment_len
-        yield array[offset: offset + segment_len]
-
-def isotime_to_datetime(str_time):
-    return datetime.datetime.strptime(str_time, '%Y-%m-%d %H:%M:%S')
-
-def iter_by_batch(iter, n):
-    while True:
-        acc = list(it.islice(iter, n))
-        if len(acc) == 0:
-            break
-        yield acc
 
 def learn_tfidf(stream):
     vectorizer = TfidfVectorizer(max_features=300)
@@ -163,14 +147,6 @@ def collect_global_stats():
 def get_tfidf_rep(queries, dictionary):
     return dictionary.transform(queries).toarray()
 
-def read_from_pickle(path):
-    with open(path, 'rb') as file:
-        try:
-            while True:
-                yield pickle.load(file)
-        except EOFError:
-            pass
-
 def preprocess_folders(path, folders):
     nlp = get_pipe()
     tokenizer = get_tokenizer(nlp)
@@ -180,10 +156,6 @@ def preprocess_folders(path, folders):
         with open(f'{path}{folder}/processed', 'wb') as proc_file:
             for coll in queries_to_vector(nlp, tokenizer, f'{path}{folder}/queries'):
                 pickle.dump(coll, proc_file)
-
-def create_dir(path):
-    if not os.path.exists(path):
-        os.mkdir(path)
 
 def process_folders(path, folders, tfidf_dict=None):
     batch_size = 100
